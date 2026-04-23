@@ -1,0 +1,38 @@
+name: CI
+
+on:
+  pull_request:
+    branches:
+      - main
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+  workflow_call:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: Build And Test
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+          cache: true
+
+      - name: Restore dependencies
+        run: dotnet restore RssSummarizer.sln
+
+      - name: Build solution
+        run: dotnet build RssSummarizer.sln --configuration Release --no-restore
+
+      - name: Run tests
+        run: dotnet test RssSummarizer.sln --configuration Release --no-build --verbosity normal
