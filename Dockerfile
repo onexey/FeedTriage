@@ -3,12 +3,12 @@ FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
 WORKDIR /src
 
 # Restore dependencies first (layer-cached)
-COPY src/RssSummarizer.Worker/RssSummarizer.Worker.csproj src/RssSummarizer.Worker/
-RUN dotnet restore src/RssSummarizer.Worker/RssSummarizer.Worker.csproj
+COPY src/FeedTriage.Worker/FeedTriage.Worker.csproj src/FeedTriage.Worker/
+RUN dotnet restore src/FeedTriage.Worker/FeedTriage.Worker.csproj
 
 # Copy source and publish
 COPY src/ src/
-RUN dotnet publish src/RssSummarizer.Worker/RssSummarizer.Worker.csproj \
+RUN dotnet publish src/FeedTriage.Worker/FeedTriage.Worker.csproj \
     -c Release \
     -o /app/publish
 
@@ -23,4 +23,4 @@ USER appuser
 
 COPY --from=build /app/publish .
 
-ENTRYPOINT ["dotnet", "RssSummarizer.Worker.dll"]
+ENTRYPOINT ["dotnet", "FeedTriage.Worker.dll"]

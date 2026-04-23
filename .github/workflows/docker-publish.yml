@@ -38,7 +38,7 @@ jobs:
 
       - name: Normalize image name
         id: image
-        run: echo "name=$(echo '${{ github.event.workflow_run.repository.full_name }}' | tr '[:upper:]' '[:lower:]')" >> "$GITHUB_OUTPUT"
+        run: echo "name=$(echo '${{ github.event.workflow_run.repository.owner.login }}/feedtriage' | tr '[:upper:]' '[:lower:]')" >> "$GITHUB_OUTPUT"
 
       - name: Extract Docker metadata
         id: meta

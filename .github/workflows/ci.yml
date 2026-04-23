@@ -29,10 +29,10 @@ jobs:
           cache: true
 
       - name: Restore dependencies
-        run: dotnet restore RssSummarizer.sln
+        run: dotnet restore FeedTriage.sln
 
       - name: Build solution
-        run: dotnet build RssSummarizer.sln --configuration Release --no-restore
+        run: dotnet build FeedTriage.sln --configuration Release --no-restore
 
       - name: Run tests
-        run: dotnet test RssSummarizer.sln --configuration Release --no-build --verbosity normal
+        run: dotnet test FeedTriage.sln --configuration Release --no-build --verbosity normal

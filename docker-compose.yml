@@ -1,5 +1,5 @@
 services:
-  rsssummarizer:
+  feedtriage:
     build:
       context: .
       dockerfile: Dockerfile
