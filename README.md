@@ -14,6 +14,24 @@ A minimal .NET 10 background worker that reads unread entries from **Miniflux**,
 
 Each AI stage returns a single `{ passed, reason }` response. Reasons are surfaced in logs and dry-run output for debugging and are not stored elsewhere.
 
+## Architecture
+
+The worker is split into a small set of focused layers:
+
+- **Miniflux client** fetches unread entries, fetches full article content, and marks entries as read.
+- **AI decision pipeline** runs stage-specific provider fallback chains for screening and review.
+- **Provider adapters** normalize concrete AI APIs behind a shared `IAiProvider` interface.
+- **Article processor** orchestrates the run: fetch unread entries, evaluate them, mark irrelevant items as read, and leave relevant items unread.
+- **Run state repository** stores the newest processed publication timestamp so later runs only fetch newer unread entries.
+
+Key behavior:
+
+- Screening and review use independent ordered provider chains.
+- The first provider that returns a valid decision wins.
+- If every provider in a stage fails, the entry stays unread for a future retry.
+- Dry run evaluates entries and logs decisions, but does not mutate Miniflux read state or local run state.
+- Hacker News entries split into separate article and discussion candidates, and the entry stays unread if either candidate is relevant.
+
 ## Requirements
 
 - .NET 10 SDK
@@ -37,7 +55,7 @@ docker compose up -d
 All configuration is via environment variables. Double underscores (`__`) separate sections.
 
 | Variable | Required | Default | Description |
-|---|---|---|---|
+| --- | --- | --- | --- |
 | `RSSSUMMARIZER__SCHEDULER__RUN_ON_START` | | `true` | Run immediately on startup |
 | `RSSSUMMARIZER__SCHEDULER__RUN_INTERVAL` | | `1.00:00:00` | How often to repeat (`d.hh:mm:ss`) |
 | `RSSSUMMARIZER__MINIFLUX__BASE_URL` | ✓ | | Miniflux base URL |
@@ -75,10 +93,24 @@ dotnet test
 RSSSUMMARIZER__PROCESSING__DRY_RUN=true dotnet run --project src/RssSummarizer.Worker
 ```
 
+## Docker package
+
+This repository publishes a Docker image to GitHub Container Registry automatically on every push to `main`.
+
+- Registry: `ghcr.io`
+- Image name: `ghcr.io/<owner>/rsssummarizer`
+- Tags on `main`: `latest`, `main`, and the commit SHA
+
+You can pull the published image directly instead of building locally:
+
+```bash
+docker pull ghcr.io/<owner>/rsssummarizer:latest
+```
+
 ## Failure semantics
 
 | Failure | Behaviour |
-|---|---|
+| --- | --- |
 | Stage 1: all providers fail | Entry left unread; retried next run |
 | Full-content fetch fails | Entry left unread |
 | Stage 2: all providers fail | Entry left unread |
