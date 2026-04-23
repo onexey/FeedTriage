@@ -1,0 +1,16 @@
+services:
+  rsssummarizer:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    env_file:
+      - .env
+    networks:
+      - internal
+    volumes:
+      - ./data:/app/data
+
+networks:
+  internal:
+    driver: bridge

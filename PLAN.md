@@ -1,0 +1,111 @@
+# RSSSummarizer Plan: `.NET 10` Worker + Docker + Multi-Provider AI
+
+## Summary
+- Build a minimal solution with `1` production worker project and `1` test project.
+- The worker runs on startup and then on a configurable interval, fetches unread Miniflux entries, performs a two-stage relevance evaluation, marks irrelevant entries as read, and leaves relevant entries unread for manual review.
+- Hacker News entries are split into independent evaluation candidates for the linked article and the discussion thread; if either candidate is relevant, the Miniflux entry remains unread.
+- AI must be provider-agnostic. Screening and full review each use their own independently configurable provider/model fallback chain.
+- Each AI stage returns one normalized result: `boolean decision + short reason`. Reasons are surfaced in logs and dry-run output for debugging.
+- Miniflux read/unread status is the only state store in v1. No local database or tracking table.
+
+## Key Changes
+- Keep a single `.NET 10` worker service, but split AI integration into:
+  - provider adapters for concrete APIs
+  - a stage-aware orchestration layer
+  - prompt builders / response validators
+- Define these internal interfaces up front:
+  - `IMinifluxClient`
+  - `IAiProvider`
+  - `IAiDecisionPipeline`
+  - `IArticleProcessor`
+- Define these core internal types:
+  - `MinifluxEntry`
+  - `AiDecision` with `Passed`, `Reason`, `ProviderInstance`, `Model`
+  - `ArticleProcessingResult`
+  - `RunSummary`
+- AI pipeline behavior:
+  - Stage 1 input: article title + excerpt derived from Miniflux content
+  - Stage 1 meaning: `Passed=true` means “promising enough for full review”
+  - If Stage 1 returns `false`, mark the article as read
+  - If Stage 1 returns `true`, fetch original article content from Miniflux and run Stage 2
+  - Stage 2 meaning: `Passed=true` means “relevant enough to leave unread for manual review”
+  - If Stage 2 returns `true`, leave the entry unread
+  - If Stage 2 returns `false`, mark the article as read
+- Provider orchestration behavior:
+  - Each stage has its own ordered fallback chain
+  - Call providers in order until one returns a valid `AiDecision`
+  - Valid means transport succeeded and response parsed into the normalized schema
+  - If a provider fails, times out, or returns invalid output, log it and try the next provider
+  - If all providers in a stage fail, leave the article unread
+- Failure semantics:
+  - Stage 1 failure across all providers leaves the article unread
+  - Full-content fetch failure leaves the article unread
+  - Stage 2 failure across all providers leaves the article unread
+  - Mark-as-read failure after an irrelevant decision can cause re-processing on a later run
+- Initial provider support:
+  - implement `Ollama` first
+  - design the abstraction so additional providers can be added without changing pipeline logic
+  - do not hardcode prompts or parsing logic inside provider adapters
+
+## Interfaces And Configuration
+- Use Miniflux REST API with `X-Auth-Token` authentication:
+  - list unread entries with `GET /v1/entries?status=unread`
+  - fetch original article content with `GET /v1/entries/{id}/fetch-content?update_content=false`
+  - mark entries as read with `PUT /v1/entries` and `{"entry_ids":[...],"status":"read"}`
+- Normalize every AI provider response to this contract:
+  - `Passed: bool`
+  - `Reason: string` limited to a short human-readable explanation
+  - `ProviderInstance: string`
+  - `Model: string`
+- Environment-variable configuration only, with strongly typed options and startup validation:
+  - `RSSSUMMARIZER__SCHEDULER__RUN_ON_START=true`
+  - `RSSSUMMARIZER__SCHEDULER__RUN_INTERVAL=1.00:00:00`
+  - `RSSSUMMARIZER__MINIFLUX__BASE_URL`
+  - `RSSSUMMARIZER__MINIFLUX__API_TOKEN`
+  - `RSSSUMMARIZER__FILTERING__FOCUS_TOPICS=software engineering,software architecture,team leadership`
+  - `RSSSUMMARIZER__FILTERING__ANTI_TOPICS=`
+  - `RSSSUMMARIZER__PROCESSING__MAX_ARTICLES_PER_RUN=` unset means unlimited
+  - `RSSSUMMARIZER__PROCESSING__DRY_RUN=false`
+  - `RSSSUMMARIZER__AI__SCREENING_CHAIN=screen_ollama_small`
+  - `RSSSUMMARIZER__AI__REVIEW_CHAIN=review_ollama_large`
+- Provider instances are named and configured independently so the same provider type can appear more than once:
+  - `RSSSUMMARIZER__AI__PROVIDERS__SCREEN_OLLAMA_SMALL__TYPE=ollama`
+  - `RSSSUMMARIZER__AI__PROVIDERS__SCREEN_OLLAMA_SMALL__BASE_URL=http://ollama:11434`
+  - `RSSSUMMARIZER__AI__PROVIDERS__SCREEN_OLLAMA_SMALL__MODEL=qwen3:4b`
+  - `RSSSUMMARIZER__AI__PROVIDERS__SCREEN_OLLAMA_SMALL__TIMEOUT_SECONDS=60`
+  - `RSSSUMMARIZER__AI__PROVIDERS__REVIEW_OLLAMA_LARGE__TYPE=ollama`
+  - `RSSSUMMARIZER__AI__PROVIDERS__REVIEW_OLLAMA_LARGE__BASE_URL=http://ollama:11434`
+  - `RSSSUMMARIZER__AI__PROVIDERS__REVIEW_OLLAMA_LARGE__MODEL=qwen3:14b`
+  - `RSSSUMMARIZER__AI__PROVIDERS__REVIEW_OLLAMA_LARGE__TIMEOUT_SECONDS=180`
+- Config rules:
+  - `FOCUS_TOPICS` is required and drives both prompts
+  - `ANTI_TOPICS` is optional and used to reduce false positives
+  - `MAX_ARTICLES_PER_RUN` limits the unread page fetched from Miniflux and therefore the number of entries processed in that run
+  - `DRY_RUN=true` performs fetch + evaluation + reason logging but does not mark entries as read
+
+## Test Plan
+- Use one test project with unit tests and HTTP-level integration tests using mocked handlers.
+- Required scenarios:
+  - startup fails when required config is missing or malformed
+  - Stage 1 returns `false` with a short reason and the article is marked read without Stage 2
+  - Stage 1 returns `true`, Stage 2 returns `true`, and the entry remains unread for manual review
+  - Stage 1 returns `true`, Stage 2 returns `false`, and the article is marked read
+  - first provider fails and second provider in the same stage succeeds
+  - all providers in Stage 1 fail and the article remains unread
+  - all providers in Stage 2 fail and the article remains unread
+  - provider returns malformed output and fallback continues
+  - full-content fetch failure leaves the article unread
+  - mark-as-read failure after an irrelevant decision is surfaced in logs and retried on the next run
+  - `DRY_RUN=true` logs final decisions and reasons but never mutates external systems
+  - `MAX_ARTICLES_PER_RUN` limits both fetch size and processing when set
+  - HTML-to-text normalization removes markup/scripts and preserves readable content
+  - scheduler runs immediately on startup when enabled, then repeats on the configured interval
+
+## Assumptions And Defaults
+- Ollama is the first implemented provider, but the design must support additional provider types without changing orchestration behavior.
+- Screening and review use separate fallback chains by default.
+- Each stage stops on the first valid decision rather than aggregating multiple provider outputs.
+- AI output is intentionally minimal: one boolean decision and one short reason per stage.
+- Reasons are for logs and dry-run observability only; they are not stored externally.
+- No local persistence is added in v1.
+- The implementation target remains small but production-shaped: minimal project count, with validation, container hardening, tests, and operational documentation from day one.

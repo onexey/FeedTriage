@@ -1,0 +1,29 @@
+# Environment and local runtime state
+.env
+.env.*
+!.env.example
+data/
+
+# .NET build artifacts
+**/bin/
+**/obj/
+artifacts/
+TestResults/
+
+# Coverage output
+coverage/
+coverage-*/
+*.coverage
+*.coveragexml
+
+# Visual Studio / Rider / VS Code local files
+.vs/
+.idea/
+*.suo
+*.user
+*.userosscache
+*.rsuser
+*.sln.docstates
+
+# OS-specific files
+.DS_Store
