@@ -19,11 +19,12 @@ public sealed class ConfigurationValidationTests
     }
 
     [Fact]
-    public void MinifluxOptions_Fails_WhenBaseUrlMissing()
+    public void MinifluxOptions_Defaults_BaseUrl_WhenMissing()
     {
         var opts = new MinifluxOptions { ApiToken = "token" };
         var results = Validate(opts);
-        Assert.Contains(results, r => r.MemberNames.Contains(nameof(MinifluxOptions.BaseUrl)));
+        Assert.Empty(results);
+        Assert.Equal("http://miniflux:8080", opts.BaseUrl);
     }
 
     [Fact]
@@ -45,7 +46,7 @@ public sealed class ConfigurationValidationTests
     [Fact]
     public void FilteringOptions_Fails_WhenFocusTopicsMissing()
     {
-        var opts = new FilteringOptions(); // FocusTopics defaults to empty string
+        var opts = new FilteringOptions();
         var results = Validate(opts);
         Assert.Contains(results, r => r.MemberNames.Contains(nameof(FilteringOptions.FocusTopics)));
     }
@@ -78,19 +79,29 @@ public sealed class ConfigurationValidationTests
     }
 
     [Fact]
-    public void AiOptions_Fails_WhenScreeningChainMissing()
+    public void AiOptions_Defaults_StandardChains_WhenMissing()
     {
-        var opts = new AiOptions { ReviewChain = "p1" };
+        var opts = new AiOptions();
         var results = Validate(opts);
-        Assert.Contains(results, r => r.MemberNames.Contains(nameof(AiOptions.ScreeningChain)));
+        Assert.Empty(results);
+        Assert.Equal("screen_ollama_small", opts.ScreeningChain);
+        Assert.Equal("review_ollama_large", opts.ReviewChain);
     }
 
     [Fact]
-    public void AiOptions_Fails_WhenReviewChainMissing()
+    public void AiOptions_Defaults_StandardProviders_WhenMissing()
     {
-        var opts = new AiOptions { ScreeningChain = "p1" };
-        var results = Validate(opts);
-        Assert.Contains(results, r => r.MemberNames.Contains(nameof(AiOptions.ReviewChain)));
+        var opts = new AiOptions();
+
+        Assert.Equal("ollama", opts.Providers["screen_ollama_small"].Type);
+        Assert.Equal("https://ollama.com/api", opts.Providers["screen_ollama_small"].BaseUrl);
+        Assert.Equal("qwen3:4b", opts.Providers["screen_ollama_small"].Model);
+        Assert.Equal(60, opts.Providers["screen_ollama_small"].TimeoutSeconds);
+
+        Assert.Equal("ollama", opts.Providers["review_ollama_large"].Type);
+        Assert.Equal("https://ollama.com/api", opts.Providers["review_ollama_large"].BaseUrl);
+        Assert.Equal("qwen3:14b", opts.Providers["review_ollama_large"].Model);
+        Assert.Equal(180, opts.Providers["review_ollama_large"].TimeoutSeconds);
     }
 
     [Fact]

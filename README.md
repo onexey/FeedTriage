@@ -9,15 +9,20 @@ It is a triage service, not a summarizer. The core job is to filter signal from 
 Run the published container directly if you already have a Miniflux instance and an Ollama-compatible endpoint available.
 
 ```bash
-cp .env.example .env
-$EDITOR .env
+mkdir -p data
 
 docker run -d \
   --name feedtriage \
-  --env-file .env \
+  -e FEEDTRIAGE__MINIFLUX__BASE_URL=http://host.docker.internal:8080 \
+  -e FEEDTRIAGE__FILTERING__FOCUS_TOPICS='software engineering,software architecture,team leadership' \
+  -e FEEDTRIAGE__MINIFLUX__API_TOKEN=replace-with-miniflux-token \
+  -e FEEDTRIAGE__AI__PROVIDERS__SCREEN_OLLAMA_SMALL__API_KEY=replace-with-ollama-api-key \
+  -e FEEDTRIAGE__AI__PROVIDERS__REVIEW_OLLAMA_LARGE__API_KEY=replace-with-ollama-api-key \
   -v "$PWD/data:/app/data" \
   ghcr.io/onexey/feedtriage:latest
 ```
+
+`FEEDTRIAGE__MINIFLUX__BASE_URL` defaults to `http://miniflux:8080`. In a standalone `docker run` setup you usually need to override it, as shown above.
 
 ## Quick start with Docker Compose
 
@@ -30,8 +35,11 @@ services:
   feedtriage:
     image: ghcr.io/onexey/feedtriage:latest
     restart: unless-stopped
-    env_file:
-      - .env
+    environment:
+      FEEDTRIAGE__FILTERING__FOCUS_TOPICS: software engineering,software architecture,team leadership
+      FEEDTRIAGE__MINIFLUX__API_TOKEN: replace-with-miniflux-token
+      FEEDTRIAGE__AI__PROVIDERS__SCREEN_OLLAMA_SMALL__API_KEY: replace-with-ollama-api-key
+      FEEDTRIAGE__AI__PROVIDERS__REVIEW_OLLAMA_LARGE__API_KEY: replace-with-ollama-api-key
     volumes:
       - ./data:/app/data
 ```
@@ -39,18 +47,19 @@ services:
 Then start it:
 
 ```bash
-cp .env.example .env
-$EDITOR .env
 docker compose up -d
 ```
 
-Only the blank secret values in `.env` need to be filled in before first start:
+These values are required with the built-in defaults:
 
+- `FEEDTRIAGE__FILTERING__FOCUS_TOPICS`
 - `FEEDTRIAGE__MINIFLUX__API_TOKEN`
 - `FEEDTRIAGE__AI__PROVIDERS__SCREEN_OLLAMA_SMALL__API_KEY`
 - `FEEDTRIAGE__AI__PROVIDERS__REVIEW_OLLAMA_LARGE__API_KEY`
 
-The sample state path already points at `./data/state.json`, so the checked-in Compose file persists state without further edits.
+Add `FEEDTRIAGE__MINIFLUX__BASE_URL` only when Miniflux is not reachable as `http://miniflux:8080` from the FeedTriage container.
+
+The default state path is `./data/state.json`, so the mounted `./data` volume persists state without further edits.
 
 The repository also includes [docker-compose.yml](/Users/mesutsoylu/Documents/Repos/FeedTriage/docker-compose.yml) for developers working from source. That file builds the image locally from the checked-out code, while the example above is for end users who only want to pull `ghcr.io/onexey/feedtriage:latest` and run it.
 
@@ -103,41 +112,62 @@ Key behavior:
 
 All configuration is supplied with environment variables. Double underscores (`__`) separate sections.
 
+If a key is omitted entirely, FeedTriage uses the default shown below.
+
 | Variable | Required | Default | Description |
 | --- | --- | --- | --- |
 | `FEEDTRIAGE__SCHEDULER__RUN_ON_START` | | `true` | Run immediately on startup |
 | `FEEDTRIAGE__SCHEDULER__RUN_INTERVAL` | | `1.00:00:00` | How often to repeat (`d.hh:mm:ss`) |
-| `FEEDTRIAGE__MINIFLUX__BASE_URL` | ✓ | | Miniflux base URL |
-| `FEEDTRIAGE__MINIFLUX__API_TOKEN` | ✓ | | Miniflux API token |
-| `FEEDTRIAGE__FILTERING__FOCUS_TOPICS` | ✓ | | Comma-separated relevant topics |
+| `FEEDTRIAGE__MINIFLUX__BASE_URL` | | `http://miniflux:8080` | Miniflux base URL |
+| `FEEDTRIAGE__MINIFLUX__API_TOKEN` | ✓ | *(none)* | Miniflux API token |
+| `FEEDTRIAGE__FILTERING__FOCUS_TOPICS` | ✓ | *(none)* | Comma-separated relevant topics |
 | `FEEDTRIAGE__FILTERING__ANTI_TOPICS` | | | Comma-separated topics to exclude |
 | `FEEDTRIAGE__PROCESSING__MAX_ARTICLES_PER_RUN` | | *(unlimited)* | Max unread items to fetch and process per run |
 | `FEEDTRIAGE__PROCESSING__DRY_RUN` | | `false` | Evaluate only; never mark entries as read |
+| `FEEDTRIAGE__PROCESSING__MAX_RETRIES_PER_ENTRY` | | `5` | Retries before giving up on a failed entry |
 | `FEEDTRIAGE__STATE__FILE_PATH` | | `./data/state.json` | JSON file used to persist the newest processed publication time |
-| `FEEDTRIAGE__AI__SCREENING_CHAIN` | ✓ | | Ordered comma-separated provider names for Stage 1 |
-| `FEEDTRIAGE__AI__REVIEW_CHAIN` | ✓ | | Ordered comma-separated provider names for Stage 2 |
+| `FEEDTRIAGE__AI__SCREENING_CHAIN` | | `screen_ollama_small` | Ordered comma-separated provider names for Stage 1 |
+| `FEEDTRIAGE__AI__REVIEW_CHAIN` | | `review_ollama_large` | Ordered comma-separated provider names for Stage 2 |
+| `FEEDTRIAGE__AI__PROVIDERS__SCREEN_OLLAMA_SMALL__TYPE` | | `ollama` | Provider type for the default Stage 1 provider |
+| `FEEDTRIAGE__AI__PROVIDERS__SCREEN_OLLAMA_SMALL__BASE_URL` | | `https://ollama.com/api` | Base URL for the default Stage 1 provider |
+| `FEEDTRIAGE__AI__PROVIDERS__SCREEN_OLLAMA_SMALL__MODEL` | | `qwen3:4b` | Model for the default Stage 1 provider |
+| `FEEDTRIAGE__AI__PROVIDERS__SCREEN_OLLAMA_SMALL__API_KEY` | ✓ | *(none)* | API key for the default Stage 1 provider |
+| `FEEDTRIAGE__AI__PROVIDERS__SCREEN_OLLAMA_SMALL__TIMEOUT_SECONDS` | | `60` | Timeout for the default Stage 1 provider |
+| `FEEDTRIAGE__AI__PROVIDERS__REVIEW_OLLAMA_LARGE__TYPE` | | `ollama` | Provider type for the default Stage 2 provider |
+| `FEEDTRIAGE__AI__PROVIDERS__REVIEW_OLLAMA_LARGE__BASE_URL` | | `https://ollama.com/api` | Base URL for the default Stage 2 provider |
+| `FEEDTRIAGE__AI__PROVIDERS__REVIEW_OLLAMA_LARGE__MODEL` | | `qwen3:14b` | Model for the default Stage 2 provider |
+| `FEEDTRIAGE__AI__PROVIDERS__REVIEW_OLLAMA_LARGE__API_KEY` | ✓ | *(none)* | API key for the default Stage 2 provider |
+| `FEEDTRIAGE__AI__PROVIDERS__REVIEW_OLLAMA_LARGE__TIMEOUT_SECONDS` | | `180` | Timeout for the default Stage 2 provider |
 
-The default sample uses these provider instance keys:
+Provider names are case-insensitive and must match names listed in `SCREENING_CHAIN` or `REVIEW_CHAIN`.
+
+For any additional provider instance name you define, these per-provider defaults still apply unless you override them:
 
 ```dotenv
-FEEDTRIAGE__AI__PROVIDERS__SCREEN_OLLAMA_SMALL__TYPE=ollama
-FEEDTRIAGE__AI__PROVIDERS__SCREEN_OLLAMA_SMALL__BASE_URL=https://ollama.com/api
-FEEDTRIAGE__AI__PROVIDERS__SCREEN_OLLAMA_SMALL__MODEL=qwen3:4b
-FEEDTRIAGE__AI__PROVIDERS__SCREEN_OLLAMA_SMALL__API_KEY=
-FEEDTRIAGE__AI__PROVIDERS__SCREEN_OLLAMA_SMALL__TIMEOUT_SECONDS=60
+FEEDTRIAGE__AI__PROVIDERS__YOUR_PROVIDER_NAME__TYPE=ollama
+FEEDTRIAGE__AI__PROVIDERS__YOUR_PROVIDER_NAME__BASE_URL=https://ollama.com/api
+FEEDTRIAGE__AI__PROVIDERS__YOUR_PROVIDER_NAME__MODEL=choose-a-model
+FEEDTRIAGE__AI__PROVIDERS__YOUR_PROVIDER_NAME__API_KEY=required
+FEEDTRIAGE__AI__PROVIDERS__YOUR_PROVIDER_NAME__TIMEOUT_SECONDS=60
 ```
 
-Provider names are case-insensitive and must match names listed in `SCREENING_CHAIN` or `REVIEW_CHAIN`. See [.env.example](/Users/mesutsoylu/Documents/Repos/FeedTriage/.env.example) for the full working sample.
+If you prefer file-based configuration, [.env.example](/Users/mesutsoylu/Documents/Repos/FeedTriage/.env.example) shows the minimal required `.env` shape plus common overrides.
 
 ## Development
 
 For source-based local container development, use the tracked [docker-compose.yml](/Users/mesutsoylu/Documents/Repos/FeedTriage/docker-compose.yml):
 
 ```bash
-cp .env.example .env
-$EDITOR .env
+mkdir -p data
+
+FEEDTRIAGE__MINIFLUX__API_TOKEN=replace-with-miniflux-token \
+FEEDTRIAGE__FILTERING__FOCUS_TOPICS='software engineering,software architecture,team leadership' \
+FEEDTRIAGE__AI__PROVIDERS__SCREEN_OLLAMA_SMALL__API_KEY=replace-with-ollama-api-key \
+FEEDTRIAGE__AI__PROVIDERS__REVIEW_OLLAMA_LARGE__API_KEY=replace-with-ollama-api-key \
 docker compose up --build -d
 ```
+
+Export `FEEDTRIAGE__MINIFLUX__BASE_URL` as well if your local Miniflux is not reachable at the default `http://miniflux:8080`.
 
 ```bash
 dotnet restore FeedTriage.sln
