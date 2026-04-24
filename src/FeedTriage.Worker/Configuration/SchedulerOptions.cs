@@ -9,5 +9,5 @@ public sealed class SchedulerOptions
     public bool RunOnStart { get; set; } = true;
 
     [Required]
-    public TimeSpan RunInterval { get; set; } = TimeSpan.FromDays(1);
+    public TimeSpan RunInterval { get; set; } = TimeSpan.FromMinutes(5);
 }

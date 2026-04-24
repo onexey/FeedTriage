@@ -5,9 +5,9 @@ public sealed class ProcessingOptions
     public const string SectionName = "FeedTriage:Processing";
 
     /// <summary>
-    /// Maximum number of unread articles to fetch and process per run. Null means unlimited.
+    /// Maximum number of unread articles to fetch and process per run.
     /// </summary>
-    public int? MaxArticlesPerRun { get; set; }
+    public int? MaxArticlesPerRun { get; set; } = 5;
 
     /// <summary>
     /// When true, fetches and evaluates articles but never marks entries as read.

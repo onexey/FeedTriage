@@ -68,6 +68,8 @@ Add `FEEDTRIAGE__MINIFLUX__BASE_URL` only when Miniflux is not reachable as `htt
 
 Add `FEEDTRIAGE__AI__PROVIDERS__SCREEN_OLLAMA_SMALL__MODEL` and `FEEDTRIAGE__AI__PROVIDERS__REVIEW_OLLAMA_LARGE__MODEL` when your provider account does not have the default `ministral-3:3b` and `gemma3:27b` models.
 
+By default, FeedTriage runs every 5 minutes and processes up to 5 unread items per run. That default is intentional so a new deployment does not burn too much LLM credit. If your feeds produce more items than that, increase `FEEDTRIAGE__SCHEDULER__RUN_INTERVAL` and/or `FEEDTRIAGE__PROCESSING__MAX_ARTICLES_PER_RUN` to match your volume and budget.
+
 The default state path is `./data/state.json`, so the mounted `./data` volume persists state without further edits.
 
 The repository also includes [docker-compose.yml](/Users/mesutsoylu/Documents/Repos/FeedTriage/docker-compose.yml) for developers working from source. That file builds the image locally from the checked-out code, while the example above is for end users who only want to pull `ghcr.io/onexey/feedtriage:latest` and run it.
@@ -126,12 +128,12 @@ If a key is omitted entirely, FeedTriage uses the default shown below.
 | Variable | Required | Default | Description |
 | --- | --- | --- | --- |
 | `FEEDTRIAGE__SCHEDULER__RUN_ON_START` | | `true` | Run immediately on startup |
-| `FEEDTRIAGE__SCHEDULER__RUN_INTERVAL` | | `1.00:00:00` | How often to repeat (`d.hh:mm:ss`) |
+| `FEEDTRIAGE__SCHEDULER__RUN_INTERVAL` | | `0.00:05:00` | How often to repeat (`d.hh:mm:ss`) |
 | `FEEDTRIAGE__MINIFLUX__BASE_URL` | | `http://miniflux:8080` | Miniflux base URL |
 | `FEEDTRIAGE__MINIFLUX__API_TOKEN` | ✓ | *(none)* | Miniflux API token |
 | `FEEDTRIAGE__FILTERING__FOCUS_TOPICS` | ✓ | *(none)* | Comma-separated relevant topics |
 | `FEEDTRIAGE__FILTERING__ANTI_TOPICS` | | | Comma-separated topics to exclude |
-| `FEEDTRIAGE__PROCESSING__MAX_ARTICLES_PER_RUN` | | *(unlimited)* | Max unread items to fetch and process per run |
+| `FEEDTRIAGE__PROCESSING__MAX_ARTICLES_PER_RUN` | | `5` | Max unread items to fetch and process per run |
 | `FEEDTRIAGE__PROCESSING__DRY_RUN` | | `false` | Evaluate only; never mark entries as read |
 | `FEEDTRIAGE__PROCESSING__MAX_RETRIES_PER_ENTRY` | | `5` | Retries before giving up on a failed entry |
 | `FEEDTRIAGE__STATE__FILE_PATH` | | `./data/state.json` | JSON file used to persist the newest processed publication time |
@@ -161,6 +163,8 @@ FEEDTRIAGE__AI__PROVIDERS__YOUR_PROVIDER_NAME__TIMEOUT_SECONDS=60
 ```
 
 If you prefer file-based configuration, [.env.example](/Users/mesutsoylu/Documents/Repos/FeedTriage/.env.example) shows the minimal required `.env` shape plus common overrides.
+
+The 5-minute interval and 5-article cap are conservative defaults meant to limit LLM spend. If your feeds are busier and you are comfortable using more credits, raise the cap, shorten the interval, or both.
 
 ## Development
 

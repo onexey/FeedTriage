@@ -105,18 +105,18 @@ public sealed class ConfigurationValidationTests
     }
 
     [Fact]
-    public void ProcessingOptions_DefaultsToNullMaxArticles_AndFalseDryRun()
+    public void ProcessingOptions_DefaultsToFiveMaxArticles_AndFalseDryRun()
     {
         var opts = new ProcessingOptions();
-        Assert.Null(opts.MaxArticlesPerRun);
+        Assert.Equal(5, opts.MaxArticlesPerRun);
         Assert.False(opts.DryRun);
     }
 
     [Fact]
-    public void SchedulerOptions_DefaultsToRunOnStart_AndOneDayInterval()
+    public void SchedulerOptions_DefaultsToRunOnStart_AndFiveMinuteInterval()
     {
         var opts = new SchedulerOptions();
         Assert.True(opts.RunOnStart);
-        Assert.Equal(TimeSpan.FromDays(1), opts.RunInterval);
+        Assert.Equal(TimeSpan.FromMinutes(5), opts.RunInterval);
     }
 }
