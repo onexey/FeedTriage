@@ -1,5 +1,12 @@
 # FeedTriage
 
+[![CI](https://github.com/onexey/FeedTriage/actions/workflows/ci.yml/badge.svg)](https://github.com/onexey/FeedTriage/actions/workflows/ci.yml)
+[![Publish Docker Image](https://github.com/onexey/FeedTriage/actions/workflows/docker-publish.yml/badge.svg)](https://github.com/onexey/FeedTriage/actions/workflows/docker-publish.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+
+<!-- markdownlint-disable-next-line MD033 -->
+<a href="https://www.buymeacoffee.com/onexey" target="_blank"><img src="https://cdn.buymeacoffee.com/buttons/v2/default-yellow.png" alt="Buy Me a Coffee" height="30"></a>
+
 FeedTriage is a .NET 10 background worker that reads unread entries from Miniflux, uses AI to decide which entries are worth keeping, marks irrelevant items as read, and leaves useful items unread for manual follow-up.
 
 It is a triage service, not a summarizer. The core job is to filter signal from noise with a two-stage AI relevance pipeline.
