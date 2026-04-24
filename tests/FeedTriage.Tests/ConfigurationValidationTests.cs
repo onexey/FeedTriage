@@ -95,12 +95,12 @@ public sealed class ConfigurationValidationTests
 
         Assert.Equal("ollama", opts.Providers["screen_ollama_small"].Type);
         Assert.Equal("https://ollama.com/api", opts.Providers["screen_ollama_small"].BaseUrl);
-        Assert.Equal("qwen3:4b", opts.Providers["screen_ollama_small"].Model);
+        Assert.Equal("ministral-3:3b", opts.Providers["screen_ollama_small"].Model);
         Assert.Equal(60, opts.Providers["screen_ollama_small"].TimeoutSeconds);
 
         Assert.Equal("ollama", opts.Providers["review_ollama_large"].Type);
         Assert.Equal("https://ollama.com/api", opts.Providers["review_ollama_large"].BaseUrl);
-        Assert.Equal("qwen3:14b", opts.Providers["review_ollama_large"].Model);
+        Assert.Equal("gemma3:27b", opts.Providers["review_ollama_large"].Model);
         Assert.Equal(180, opts.Providers["review_ollama_large"].TimeoutSeconds);
     }
 

@@ -24,6 +24,13 @@ docker run -d \
 
 `FEEDTRIAGE__MINIFLUX__BASE_URL` defaults to `http://miniflux:8080`. In a standalone `docker run` setup you usually need to override it, as shown above.
 
+If your Ollama-compatible endpoint does not expose the default models `ministral-3:3b` and `gemma3:27b`, pass these overrides too:
+
+```bash
+-e FEEDTRIAGE__AI__PROVIDERS__SCREEN_OLLAMA_SMALL__MODEL=your-screening-model \
+-e FEEDTRIAGE__AI__PROVIDERS__REVIEW_OLLAMA_LARGE__MODEL=your-review-model
+```
+
 ## Quick start with Docker Compose
 
 Use Docker Compose to run the published image from GitHub Container Registry in your own environment.
@@ -58,6 +65,8 @@ These values are required with the built-in defaults:
 - `FEEDTRIAGE__AI__PROVIDERS__REVIEW_OLLAMA_LARGE__API_KEY`
 
 Add `FEEDTRIAGE__MINIFLUX__BASE_URL` only when Miniflux is not reachable as `http://miniflux:8080` from the FeedTriage container.
+
+Add `FEEDTRIAGE__AI__PROVIDERS__SCREEN_OLLAMA_SMALL__MODEL` and `FEEDTRIAGE__AI__PROVIDERS__REVIEW_OLLAMA_LARGE__MODEL` when your provider account does not have the default `ministral-3:3b` and `gemma3:27b` models.
 
 The default state path is `./data/state.json`, so the mounted `./data` volume persists state without further edits.
 
@@ -130,12 +139,12 @@ If a key is omitted entirely, FeedTriage uses the default shown below.
 | `FEEDTRIAGE__AI__REVIEW_CHAIN` | | `review_ollama_large` | Ordered comma-separated provider names for Stage 2 |
 | `FEEDTRIAGE__AI__PROVIDERS__SCREEN_OLLAMA_SMALL__TYPE` | | `ollama` | Provider type for the default Stage 1 provider |
 | `FEEDTRIAGE__AI__PROVIDERS__SCREEN_OLLAMA_SMALL__BASE_URL` | | `https://ollama.com/api` | Base URL for the default Stage 1 provider |
-| `FEEDTRIAGE__AI__PROVIDERS__SCREEN_OLLAMA_SMALL__MODEL` | | `qwen3:4b` | Model for the default Stage 1 provider |
+| `FEEDTRIAGE__AI__PROVIDERS__SCREEN_OLLAMA_SMALL__MODEL` | | `ministral-3:3b` | Model for the default Stage 1 provider |
 | `FEEDTRIAGE__AI__PROVIDERS__SCREEN_OLLAMA_SMALL__API_KEY` | ✓ | *(none)* | API key for the default Stage 1 provider |
 | `FEEDTRIAGE__AI__PROVIDERS__SCREEN_OLLAMA_SMALL__TIMEOUT_SECONDS` | | `60` | Timeout for the default Stage 1 provider |
 | `FEEDTRIAGE__AI__PROVIDERS__REVIEW_OLLAMA_LARGE__TYPE` | | `ollama` | Provider type for the default Stage 2 provider |
 | `FEEDTRIAGE__AI__PROVIDERS__REVIEW_OLLAMA_LARGE__BASE_URL` | | `https://ollama.com/api` | Base URL for the default Stage 2 provider |
-| `FEEDTRIAGE__AI__PROVIDERS__REVIEW_OLLAMA_LARGE__MODEL` | | `qwen3:14b` | Model for the default Stage 2 provider |
+| `FEEDTRIAGE__AI__PROVIDERS__REVIEW_OLLAMA_LARGE__MODEL` | | `gemma3:27b` | Model for the default Stage 2 provider |
 | `FEEDTRIAGE__AI__PROVIDERS__REVIEW_OLLAMA_LARGE__API_KEY` | ✓ | *(none)* | API key for the default Stage 2 provider |
 | `FEEDTRIAGE__AI__PROVIDERS__REVIEW_OLLAMA_LARGE__TIMEOUT_SECONDS` | | `180` | Timeout for the default Stage 2 provider |
 

@@ -28,11 +28,11 @@ public sealed class AiOptions
         {
             ["screen_ollama_small"] = new()
             {
-                Model = "qwen3:4b"
+                Model = "ministral-3:3b"
             },
             ["review_ollama_large"] = new()
             {
-                Model = "qwen3:14b",
+                Model = "gemma3:27b",
                 TimeoutSeconds = 180
             }
         };
