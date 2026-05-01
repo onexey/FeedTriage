@@ -23,8 +23,7 @@ RUN groupadd --system --gid 1001 appgroup && \
 COPY --from=build /app/publish .
 COPY docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
 
-RUN chmod +x /usr/local/bin/docker-entrypoint.sh && \
-    chown -R appuser:appgroup /app /home/appuser
+RUN chmod +x /usr/local/bin/docker-entrypoint.sh
 
 ENTRYPOINT ["/usr/local/bin/docker-entrypoint.sh"]
 CMD ["dotnet", "FeedTriage.Worker.dll"]
