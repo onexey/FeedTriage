@@ -85,7 +85,7 @@ That bind mount works without setting `FEEDTRIAGE__STATE__FILE_PATH`; the contai
 
 If you do want a different mount point, set `FEEDTRIAGE__STATE__FILE_PATH` to another writable location inside the mounted volume, such as `/data/state.json`.
 
-The repository also includes [docker-compose.yml](/Users/mesutsoylu/Documents/Repos/FeedTriage/docker-compose.yml) for developers working from source. That file builds the image locally from the checked-out code, while the example above is for end users who only want to pull `ghcr.io/onexey/feedtriage:latest` and run it.
+The repository also includes [docker-compose.yml](./docker-compose.yml) for developers working from source. That file builds the image locally from the checked-out code, while the example above is for end users who only want to pull `ghcr.io/onexey/feedtriage:latest` and run it.
 
 ## Supported systems
 
@@ -175,13 +175,13 @@ FEEDTRIAGE__AI__PROVIDERS__YOUR_PROVIDER_NAME__API_KEY=required
 FEEDTRIAGE__AI__PROVIDERS__YOUR_PROVIDER_NAME__TIMEOUT_SECONDS=60
 ```
 
-If you prefer file-based configuration, [.env.example](/Users/mesutsoylu/Documents/Repos/FeedTriage/.env.example) shows the minimal required `.env` shape plus common overrides.
+If you prefer file-based configuration, [.env.example](./.env.example) shows the minimal required `.env` shape plus common overrides.
 
 The 5-minute interval and 5-article cap are conservative defaults meant to limit LLM spend. If your feeds are busier and you are comfortable using more credits, raise the cap, shorten the interval, or both.
 
 ## Development
 
-For source-based local container development, use the tracked [docker-compose.yml](/Users/mesutsoylu/Documents/Repos/FeedTriage/docker-compose.yml):
+For source-based local container development, use the tracked [docker-compose.yml](./docker-compose.yml):
 
 ```bash
 mkdir -p data

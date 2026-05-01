@@ -5,6 +5,7 @@ set -eu
 raw_state_path="${FEEDTRIAGE__STATE__FILE_PATH:-/app/data/state.json}"
 
 case "$raw_state_path" in
+    # realpath -m is intentional here because the state file may not exist yet.
     /*) state_path="$(realpath -m "$raw_state_path")" ;;
     *) state_path="$(realpath -m "/app/$raw_state_path")" ;;
 esac
