@@ -83,6 +83,8 @@ The default state path is `./data/state.json`, so the mounted `./data` volume pe
 
 That bind mount works without setting `FEEDTRIAGE__STATE__FILE_PATH`; the container prepares the mounted state directory on startup before dropping privileges.
 
+If you do want a different mount point, set `FEEDTRIAGE__STATE__FILE_PATH` to another writable location inside the mounted volume, such as `/data/state.json`.
+
 The repository also includes [docker-compose.yml](/Users/mesutsoylu/Documents/Repos/FeedTriage/docker-compose.yml) for developers working from source. That file builds the image locally from the checked-out code, while the example above is for end users who only want to pull `ghcr.io/onexey/feedtriage:latest` and run it.
 
 ## Supported systems
