@@ -16,11 +16,15 @@ RUN dotnet publish src/FeedTriage.Worker/FeedTriage.Worker.csproj \
 FROM mcr.microsoft.com/dotnet/runtime:10.0 AS runtime
 WORKDIR /app
 
-# Run as non-root
+# Prepare runtime user
 RUN groupadd --system --gid 1001 appgroup && \
     useradd --system --uid 1001 --gid appgroup --create-home appuser
-USER appuser
 
 COPY --from=build /app/publish .
+COPY docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
 
-ENTRYPOINT ["dotnet", "FeedTriage.Worker.dll"]
+RUN chmod +x /usr/local/bin/docker-entrypoint.sh && \
+    chown -R appuser:appgroup /app /home/appuser
+
+ENTRYPOINT ["/usr/local/bin/docker-entrypoint.sh"]
+CMD ["dotnet", "FeedTriage.Worker.dll"]

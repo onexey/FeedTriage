@@ -31,6 +31,8 @@ docker run -d \
 
 `FEEDTRIAGE__MINIFLUX__BASE_URL` defaults to `http://miniflux:8080`. In a standalone `docker run` setup you usually need to override it, as shown above.
 
+The default `./data/state.json` path works with that bind mount as-is; the container ensures the mounted state directory is writable on startup.
+
 If your Ollama-compatible endpoint does not expose the default models `ministral-3:3b` and `gemma3:27b`, pass these overrides too:
 
 ```bash
@@ -78,6 +80,8 @@ Add `FEEDTRIAGE__AI__PROVIDERS__SCREEN_OLLAMA_SMALL__MODEL` and `FEEDTRIAGE__AI_
 By default, FeedTriage runs every 5 minutes and processes up to 5 unread items per run. That default is intentional so a new deployment does not burn too much LLM credit. If your feeds produce more items than that, increase `FEEDTRIAGE__SCHEDULER__RUN_INTERVAL` and/or `FEEDTRIAGE__PROCESSING__MAX_ARTICLES_PER_RUN` to match your volume and budget.
 
 The default state path is `./data/state.json`, so the mounted `./data` volume persists state without further edits.
+
+That bind mount works without setting `FEEDTRIAGE__STATE__FILE_PATH`; the container prepares the mounted state directory on startup before dropping privileges.
 
 The repository also includes [docker-compose.yml](/Users/mesutsoylu/Documents/Repos/FeedTriage/docker-compose.yml) for developers working from source. That file builds the image locally from the checked-out code, while the example above is for end users who only want to pull `ghcr.io/onexey/feedtriage:latest` and run it.
 
