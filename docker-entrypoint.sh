@@ -7,7 +7,7 @@ state_dir="$(dirname "$state_path")"
 if [ "$(id -u)" = "0" ]; then
     mkdir -p "$state_dir"
 
-    if [ -d "$state_dir" ] && [ "$state_dir" != "/" ]; then
+    if [ "$state_dir" != "/" ]; then
         chown appuser:appgroup "$state_dir"
     fi
 
