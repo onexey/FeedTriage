@@ -119,4 +119,11 @@ public sealed class ConfigurationValidationTests
         Assert.True(opts.RunOnStart);
         Assert.Equal(TimeSpan.FromMinutes(5), opts.RunInterval);
     }
+
+    [Fact]
+    public void StateOptions_DefaultsToLocalDataPath_WhenNotRunningInContainer()
+    {
+        var opts = new StateOptions();
+        Assert.Equal("./data/state.json", opts.FilePath);
+    }
 }

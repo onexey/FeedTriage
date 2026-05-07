@@ -25,13 +25,11 @@ docker run -d \
   -e FEEDTRIAGE__MINIFLUX__API_TOKEN=replace-with-miniflux-token \
   -e FEEDTRIAGE__AI__PROVIDERS__SCREEN_OLLAMA_SMALL__API_KEY=replace-with-ollama-api-key \
   -e FEEDTRIAGE__AI__PROVIDERS__REVIEW_OLLAMA_LARGE__API_KEY=replace-with-ollama-api-key \
-  -v "$PWD/data:/app/data" \
+  -v "$PWD/data:/data" \
   ghcr.io/onexey/feedtriage:latest
 ```
 
 `FEEDTRIAGE__MINIFLUX__BASE_URL` defaults to `http://miniflux:8080`. In a standalone `docker run` setup you usually need to override it, as shown above.
-
-The default `./data/state.json` path works with that bind mount as-is; the container ensures the mounted state directory is writable on startup.
 
 If your Ollama-compatible endpoint does not expose the default models `ministral-3:3b` and `gemma3:27b`, pass these overrides too:
 
@@ -57,7 +55,7 @@ services:
       FEEDTRIAGE__AI__PROVIDERS__SCREEN_OLLAMA_SMALL__API_KEY: replace-with-ollama-api-key
       FEEDTRIAGE__AI__PROVIDERS__REVIEW_OLLAMA_LARGE__API_KEY: replace-with-ollama-api-key
     volumes:
-      - ./data:/app/data
+      - ./data:/data
 ```
 
 Then start it:
@@ -79,11 +77,7 @@ Add `FEEDTRIAGE__AI__PROVIDERS__SCREEN_OLLAMA_SMALL__MODEL` and `FEEDTRIAGE__AI_
 
 By default, FeedTriage runs every 5 minutes and processes up to 5 unread items per run. That default is intentional so a new deployment does not burn too much LLM credit. If your feeds produce more items than that, increase `FEEDTRIAGE__SCHEDULER__RUN_INTERVAL` and/or `FEEDTRIAGE__PROCESSING__MAX_ARTICLES_PER_RUN` to match your volume and budget.
 
-The default state path is `./data/state.json`, so the mounted `./data` volume persists state without further edits.
-
-That bind mount works without setting `FEEDTRIAGE__STATE__FILE_PATH`; the container prepares the mounted state directory on startup before dropping privileges.
-
-If you do want a different mount point, set `FEEDTRIAGE__STATE__FILE_PATH` to another writable location inside the mounted volume, such as `/data/state.json`.
+Inside Docker, the default state path is `/data/state.json`, so mounting a writable folder to `/data` persists state without extra configuration. Outside Docker, the default remains `./data/state.json`.
 
 The repository also includes [docker-compose.yml](./docker-compose.yml) for developers working from source. That file builds the image locally from the checked-out code, while the example above is for end users who only want to pull `ghcr.io/onexey/feedtriage:latest` and run it.
 
@@ -149,7 +143,7 @@ If a key is omitted entirely, FeedTriage uses the default shown below.
 | `FEEDTRIAGE__PROCESSING__MAX_ARTICLES_PER_RUN` | | `5` | Max unread items to fetch and process per run |
 | `FEEDTRIAGE__PROCESSING__DRY_RUN` | | `false` | Evaluate only; never mark entries as read |
 | `FEEDTRIAGE__PROCESSING__MAX_RETRIES_PER_ENTRY` | | `5` | Retries before giving up on a failed entry |
-| `FEEDTRIAGE__STATE__FILE_PATH` | | `./data/state.json` | JSON file used to persist the newest processed publication time |
+| `FEEDTRIAGE__STATE__FILE_PATH` | | `./data/state.json` locally, `/data/state.json` in Docker | JSON file used to persist the newest processed publication time |
 | `FEEDTRIAGE__AI__SCREENING_CHAIN` | | `screen_ollama_small` | Ordered comma-separated provider names for Stage 1 |
 | `FEEDTRIAGE__AI__REVIEW_CHAIN` | | `review_ollama_large` | Ordered comma-separated provider names for Stage 2 |
 | `FEEDTRIAGE__AI__PROVIDERS__SCREEN_OLLAMA_SMALL__TYPE` | | `ollama` | Provider type for the default Stage 1 provider |

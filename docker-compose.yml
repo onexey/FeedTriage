@@ -9,7 +9,7 @@ services:
     networks:
       - internal
     volumes:
-      - ./data:/app/data
+      - ./data:/data
 
 networks:
   internal:

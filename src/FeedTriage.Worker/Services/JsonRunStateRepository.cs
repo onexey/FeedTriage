@@ -69,9 +69,7 @@ public sealed class JsonRunStateRepository : IRunStateRepository
         {
             _logger.LogWarning(ex,
                 "Failed to save state file at {Path}. " +
-                "If running in Docker, mount a writable volume and make sure the container user can write to it. " +
-                "Set FEEDTRIAGE__STATE__FILE_PATH only when you need to store state in a different location " +
-                "inside that volume (e.g. /data/state.json).",
+                "If running in Docker, mount a writable volume to /data.",
                 _filePath);
         }
     }
