@@ -121,7 +121,7 @@ public sealed class ConfigurationValidationTests
     }
 
     [Fact]
-    public void StateOptions_DefaultsToLocalDataPath_WhenContainerFlagMissing()
+    public void StateOptions_DefaultsToLocalDataPath_WhenContainerFlagIsNull()
     {
         var path = StateOptions.ResolveDefaultFilePath(null);
         Assert.Equal("./data/state.json", path);

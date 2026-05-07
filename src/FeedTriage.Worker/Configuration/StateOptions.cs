@@ -17,7 +17,7 @@ public sealed class StateOptions
     /// Relative paths are resolved from the current working directory.
     /// Defaults to "./data/state.json" locally and "/data/state.json" inside containers.
     /// </summary>
-    public string FilePath { get; set; } = string.Empty;
+    public string FilePath { get; set; }
 
     public static string ResolveDefaultFilePath(string? dotnetRunningInContainer)
     {
