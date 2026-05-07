@@ -59,6 +59,30 @@ public sealed class JsonRunStateRepositoryTests
         }
     }
 
+    [Fact]
+    public async Task SaveLastPublishedAtAsync_PropagatesCancellation()
+    {
+        var tempRoot = Path.Combine(Path.GetTempPath(), $"feedtriage-state-{Guid.NewGuid():N}");
+        var filePath = Path.Combine(tempRoot, "state.json");
+        using var cts = new CancellationTokenSource();
+        cts.Cancel();
+
+        try
+        {
+            var repository = CreateRepository(filePath);
+
+            await Assert.ThrowsAnyAsync<OperationCanceledException>(
+                () => repository.SaveLastPublishedAtAsync(DateTimeOffset.UtcNow, cts.Token));
+        }
+        finally
+        {
+            if (Directory.Exists(tempRoot))
+            {
+                Directory.Delete(tempRoot, recursive: true);
+            }
+        }
+    }
+
     private static JsonRunStateRepository CreateRepository(string filePath)
     {
         var options = Options.Create(new StateOptions { FilePath = filePath });

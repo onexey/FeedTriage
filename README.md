@@ -79,7 +79,7 @@ By default, FeedTriage runs every 5 minutes and processes up to 5 unread items p
 
 The default state path is `./data/state.json`, so the mounted `./data` volume persists state without further edits, and the container creates `state.json` automatically on first run.
 
-The repository also includes [docker-compose.yml](/Users/mesutsoylu/Documents/Repos/FeedTriage/docker-compose.yml) for developers working from source. That file builds the image locally from the checked-out code, while the example above is for end users who only want to pull `ghcr.io/onexey/feedtriage:latest` and run it.
+The repository also includes [docker-compose.yml](./docker-compose.yml) for developers working from source. That file builds the image locally from the checked-out code, while the example above is for end users who only want to pull `ghcr.io/onexey/feedtriage:latest` and run it.
 
 ## Supported systems
 

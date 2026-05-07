@@ -44,6 +44,10 @@ public sealed class JsonRunStateRepository : IRunStateRepository
                 _filePath, state?.LastPublishedAt);
             return state?.LastPublishedAt;
         }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
         catch (Exception ex)
         {
             _logger.LogWarning(ex,
@@ -63,6 +67,10 @@ public sealed class JsonRunStateRepository : IRunStateRepository
             await File.WriteAllTextAsync(_filePath, json, ct);
             _logger.LogDebug(
                 "Saved run state to {Path} — last published at: {PublishedAt}", _filePath, publishedAt);
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
         }
         catch (Exception ex)
         {
