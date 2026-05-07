@@ -121,10 +121,10 @@ public sealed class ConfigurationValidationTests
     }
 
     [Fact]
-    public void StateOptions_DefaultsToLocalDataPath_WhenNotRunningInContainer()
+    public void StateOptions_DefaultsToLocalDataPath_WhenContainerFlagMissing()
     {
-        var opts = new StateOptions();
-        Assert.Equal("./data/state.json", opts.FilePath);
+        var path = StateOptions.ResolveDefaultFilePath(null);
+        Assert.Equal("./data/state.json", path);
     }
 
     [Fact]
