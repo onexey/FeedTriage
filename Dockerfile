@@ -16,11 +16,14 @@ RUN dotnet publish src/FeedTriage.Worker/FeedTriage.Worker.csproj \
 FROM mcr.microsoft.com/dotnet/runtime:10.0 AS runtime
 WORKDIR /app
 
-# Run as non-root
+# Create the runtime user that will be used after mounted data is initialized.
 RUN groupadd --system --gid 1001 appgroup && \
-    useradd --system --uid 1001 --gid appgroup --create-home appuser
-USER appuser
+    useradd --system --uid 1001 --gid appgroup --create-home appuser && \
+    mkdir -p /app/data
+
+COPY docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
+RUN chmod +x /usr/local/bin/docker-entrypoint.sh
 
 COPY --from=build /app/publish .
 
-ENTRYPOINT ["dotnet", "FeedTriage.Worker.dll"]
+ENTRYPOINT ["/usr/local/bin/docker-entrypoint.sh"]

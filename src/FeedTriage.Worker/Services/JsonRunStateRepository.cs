@@ -27,21 +27,26 @@ public sealed class JsonRunStateRepository : IRunStateRepository
 
     public async Task<DateTimeOffset?> GetLastPublishedAtAsync(CancellationToken ct = default)
     {
-        if (!File.Exists(_filePath))
-        {
-            _logger.LogInformation(
-                "No state file found at {Path} — starting from scratch (all unread entries)", _filePath);
-            return null;
-        }
-
         try
         {
+            if (await EnsureStateFileExistsAsync(ct))
+            {
+                _logger.LogInformation(
+                    "Initialized empty state file at {Path} — starting from scratch (all unread entries)",
+                    _filePath);
+                return null;
+            }
+
             var json = await File.ReadAllTextAsync(_filePath, ct);
             var state = JsonSerializer.Deserialize<RunState>(json, JsonOptions);
             _logger.LogInformation(
                 "Loaded run state from {Path} — last published at: {PublishedAt}",
                 _filePath, state?.LastPublishedAt);
             return state?.LastPublishedAt;
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
         }
         catch (Exception ex)
         {
@@ -55,9 +60,7 @@ public sealed class JsonRunStateRepository : IRunStateRepository
     {
         try
         {
-            var dir = Path.GetDirectoryName(_filePath);
-            if (!string.IsNullOrEmpty(dir))
-                Directory.CreateDirectory(dir);
+            await EnsureStateFileExistsAsync(ct);
 
             var state = new RunState { LastPublishedAt = publishedAt };
             var json = JsonSerializer.Serialize(state, JsonOptions);
@@ -65,14 +68,35 @@ public sealed class JsonRunStateRepository : IRunStateRepository
             _logger.LogDebug(
                 "Saved run state to {Path} — last published at: {PublishedAt}", _filePath, publishedAt);
         }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
         catch (Exception ex)
         {
             _logger.LogWarning(ex,
                 "Failed to save state file at {Path}. " +
-                "If running in Docker, mount a writable volume and set FEEDTRIAGE__STATE__FILE_PATH " +
-                "to a path inside it (e.g. /data/state.json).",
+                "If running in Docker, mount a writable volume for ./data (container path /app/data).",
                 _filePath);
         }
+    }
+
+    private async Task<bool> EnsureStateFileExistsAsync(CancellationToken ct)
+    {
+        var dir = Path.GetDirectoryName(_filePath);
+        if (!string.IsNullOrEmpty(dir))
+        {
+            Directory.CreateDirectory(dir);
+        }
+
+        if (File.Exists(_filePath))
+        {
+            return false;
+        }
+
+        var json = JsonSerializer.Serialize(new RunState(), JsonOptions);
+        await File.WriteAllTextAsync(_filePath, json, ct);
+        return true;
     }
 
     private sealed class RunState
