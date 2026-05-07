@@ -126,4 +126,11 @@ public sealed class ConfigurationValidationTests
         var opts = new StateOptions();
         Assert.Equal("./data/state.json", opts.FilePath);
     }
+
+    [Fact]
+    public void StateOptions_DefaultsToContainerDataPath_WhenRunningInContainer()
+    {
+        var path = StateOptions.ResolveDefaultFilePath("true");
+        Assert.Equal("/data/state.json", path);
+    }
 }

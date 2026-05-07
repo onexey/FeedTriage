@@ -6,20 +6,23 @@ public sealed class StateOptions
     private const string LocalDefaultFilePath = "./data/state.json";
     private const string ContainerDefaultFilePath = "/data/state.json";
 
+    public StateOptions()
+    {
+        FilePath = ResolveDefaultFilePath(
+            Environment.GetEnvironmentVariable("DOTNET_RUNNING_IN_CONTAINER"));
+    }
+
     /// <summary>
     /// Path to the JSON file used to persist run state (last processed entry ID).
     /// Relative paths are resolved from the current working directory.
     /// Defaults to "./data/state.json" locally and "/data/state.json" inside containers.
     /// </summary>
-    public string FilePath { get; set; } = IsRunningInContainer()
-        ? ContainerDefaultFilePath
-        : LocalDefaultFilePath;
+    public string FilePath { get; set; }
 
-    private static bool IsRunningInContainer()
+    public static string ResolveDefaultFilePath(string? dotnetRunningInContainer)
     {
-        return string.Equals(
-            Environment.GetEnvironmentVariable("DOTNET_RUNNING_IN_CONTAINER"),
-            "true",
-            StringComparison.OrdinalIgnoreCase);
+        return string.Equals(dotnetRunningInContainer, "true", StringComparison.OrdinalIgnoreCase)
+            ? ContainerDefaultFilePath
+            : LocalDefaultFilePath;
     }
 }
