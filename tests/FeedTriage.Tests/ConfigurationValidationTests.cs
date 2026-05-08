@@ -125,6 +125,13 @@ public sealed class ConfigurationValidationTests
     [Fact]
     public void ConsoleLoggingDefaults_UsesValidTimestampFormat()
     {
+        const string brokenTimestampFormat = "yyyy-MM-dd'T'HH':'mm':'ss.fffzzz': ";
+
+        Assert.NotEqual(brokenTimestampFormat, ConsoleLoggingDefaults.TimestampFormat);
+        Assert.Throws<FormatException>(() => DateTimeOffset.UnixEpoch.ToString(
+            brokenTimestampFormat,
+            CultureInfo.InvariantCulture));
+
         var formatted = DateTimeOffset.UnixEpoch.ToString(
             ConsoleLoggingDefaults.TimestampFormat,
             CultureInfo.InvariantCulture);
