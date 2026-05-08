@@ -1,5 +1,6 @@
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging.Console;
 using Microsoft.Extensions.Options;
 using FeedTriage.Worker;
 using FeedTriage.Worker.Ai;
@@ -27,6 +28,17 @@ var host = Host.CreateDefaultBuilder(args)
     .ConfigureServices((ctx, services) =>
     {
         var config = ctx.Configuration;
+
+        services.Configure<ConsoleLoggerOptions>(options =>
+        {
+            options.FormatterName = ConsoleFormatterNames.Simple;
+        });
+
+        services.Configure<SimpleConsoleFormatterOptions>(options =>
+        {
+            options.TimestampFormat = "yyyy-MM-dd'T'HH':'mm':'ss.fffzzz': ";
+            options.UseUtcTimestamp = true;
+        });
 
         // ── Options registration with startup validation ───────────────────────
         services
