@@ -36,7 +36,7 @@ var host = Host.CreateDefaultBuilder(args)
 
         services.Configure<SimpleConsoleFormatterOptions>(options =>
         {
-            options.TimestampFormat = "yyyy-MM-dd'T'HH':'mm':'ss.fffzzz': ";
+            options.TimestampFormat = ConsoleLoggingDefaults.TimestampFormat;
             options.UseUtcTimestamp = true;
         });
 
@@ -108,4 +108,9 @@ static string NormalizeEnvKey(string envKey)
     segments[^1] = segments[^1].Replace("_", string.Empty, StringComparison.Ordinal);
 
     return string.Join(':', segments);
+}
+
+public static class ConsoleLoggingDefaults
+{
+    public const string TimestampFormat = "yyyy-MM-dd'T'HH':'mm':'ss.fffzzz': '";
 }

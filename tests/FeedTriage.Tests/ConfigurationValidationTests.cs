@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations;
+using System.Globalization;
 using FeedTriage.Worker.Configuration;
 using Xunit;
 
@@ -118,5 +119,15 @@ public sealed class ConfigurationValidationTests
         var opts = new SchedulerOptions();
         Assert.True(opts.RunOnStart);
         Assert.Equal(TimeSpan.FromMinutes(5), opts.RunInterval);
+    }
+
+    [Fact]
+    public void ConsoleLoggingDefaults_UsesValidTimestampFormat()
+    {
+        var formatted = DateTimeOffset.UnixEpoch.ToString(
+            ConsoleLoggingDefaults.TimestampFormat,
+            CultureInfo.InvariantCulture);
+
+        Assert.Equal("1970-01-01T00:00:00.000+00:00: ", formatted);
     }
 }
