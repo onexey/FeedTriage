@@ -36,7 +36,7 @@ var host = Host.CreateDefaultBuilder(args)
 
         services.Configure<SimpleConsoleFormatterOptions>(options =>
         {
-            options.TimestampFormat = "yyyy-MM-ddTHH:mm:ss.fff'Z': ";
+            options.TimestampFormat = "yyyy-MM-ddTHH:mm:ss.fffzzz: ";
             options.UseUtcTimestamp = true;
         });
 
