@@ -109,8 +109,3 @@ static string NormalizeEnvKey(string envKey)
 
     return string.Join(':', segments);
 }
-
-public static class ConsoleLoggingDefaults
-{
-    public const string TimestampFormat = "yyyy-MM-dd'T'HH':'mm':'ss.fffzzz': '";
-}
