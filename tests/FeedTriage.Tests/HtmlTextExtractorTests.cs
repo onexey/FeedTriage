@@ -48,6 +48,39 @@ public sealed class HtmlTextExtractorTests
     }
 
     [Fact]
+    public void Extract_RemovesCssNoiseFromReadableText()
+    {
+        var html = "<div>body { color: red; font-size: 16px; } Real article text.</div>";
+        var result = HtmlTextExtractor.Extract(html);
+
+        Assert.Contains("Real article text.", result);
+        Assert.DoesNotContain("font-size", result);
+        Assert.DoesNotContain("color:", result);
+    }
+
+    [Fact]
+    public void Extract_RemovesNestedCssRules()
+    {
+        var html = "<div>@media screen and (min-width: 800px) { .hero { color: blue; } } Keep this text.</div>";
+        var result = HtmlTextExtractor.Extract(html);
+
+        Assert.Contains("Keep this text.", result);
+        Assert.DoesNotContain("@media", result);
+        Assert.DoesNotContain(".hero", result);
+    }
+
+    [Fact]
+    public void Extract_RemovesKeyframesRules()
+    {
+        var html = "<div>@keyframes fade { from { opacity: 0; } to { opacity: 1; } } Animation notes.</div>";
+        var result = HtmlTextExtractor.Extract(html);
+
+        Assert.Contains("Animation notes.", result);
+        Assert.DoesNotContain("@keyframes", result);
+        Assert.DoesNotContain("opacity", result);
+    }
+
+    [Fact]
     public void Extract_DecodesHtmlEntities()
     {
         var html = "<p>Hello &amp; world &lt;3&gt;</p>";
