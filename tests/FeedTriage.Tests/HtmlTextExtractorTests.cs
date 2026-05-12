@@ -70,6 +70,17 @@ public sealed class HtmlTextExtractorTests
     }
 
     [Fact]
+    public void Extract_RemovesKeyframesRules()
+    {
+        var html = "<div>@keyframes fade { from { opacity: 0; } to { opacity: 1; } } Animation notes.</div>";
+        var result = HtmlTextExtractor.Extract(html);
+
+        Assert.Contains("Animation notes.", result);
+        Assert.DoesNotContain("@keyframes", result);
+        Assert.DoesNotContain("opacity", result);
+    }
+
+    [Fact]
     public void Extract_DecodesHtmlEntities()
     {
         var html = "<p>Hello &amp; world &lt;3&gt;</p>";

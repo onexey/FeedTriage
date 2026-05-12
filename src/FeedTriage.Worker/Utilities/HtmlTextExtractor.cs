@@ -13,11 +13,23 @@ public static class HtmlTextExtractor
     private const string CommonCssSelectorStarts =
         @"(?:\*|html|body|main|header|footer|article|section|aside|nav|div|span|p|a|img|button|input|form|table|tr|td|th|ul|ol|li|h[1-6]|svg|path|pre|code|[#.:\[])";
 
+    private static readonly Regex KeyframesRulePattern = new(
+        @"(?ix)
+        @(?:-[a-z]+-)?keyframes\b[^{}]*
+        \{
+            (?:
+                [^{}]+
+                |
+                \{[^{}]*\}
+            )*
+        \}",
+        RegexOptions.Compiled);
+
     private static readonly Regex CssRulePattern = new(
         $@"(?ix)
         (?<![\w-])
         (?:
-            @(?:font-face|keyframes|media|page|property|supports|layer|container)\b[^{{}}]*
+            @(?:font-face|media|page|property|supports|layer|container)\b[^{{}}]*
             |
             {CommonCssSelectorStarts}
             [\w\-\s>:+~.,\[\]=""'()*%/#-]*
@@ -135,6 +147,7 @@ public static class HtmlTextExtractor
         for (var pass = 0; pass < MaxCssCleanupPasses; pass++)
         {
             var previous = cleaned;
+            cleaned = KeyframesRulePattern.Replace(cleaned, " ");
             cleaned = CssRulePattern.Replace(cleaned, " ");
             cleaned = EmptyCssAtRulePattern.Replace(cleaned, " ");
 
