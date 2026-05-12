@@ -9,20 +9,22 @@ namespace FeedTriage.Worker.Utilities;
 /// </summary>
 public static class HtmlTextExtractor
 {
+    private const int MaxCssCleanupPasses = 8;
+    private const string CommonCssSelectorStarts =
+        @"(?:\*|html|body|main|header|footer|article|section|aside|nav|div|span|p|a|img|button|input|form|table|tr|td|th|ul|ol|li|h[1-6]|svg|path|pre|code|[#.:\[])";
+
     private static readonly Regex CssRulePattern = new(
-        """
-        (?ix)
-        (?<![\w-])
-        (?:
-            @(?:font-face|keyframes|media|page|property|supports|layer|container)\b[^{}]*
-            |
-            (?:\*|html|body|main|header|footer|article|section|aside|nav|div|span|p|a|img|button|input|form|table|tr|td|th|ul|ol|li|h[1-6]|svg|path|pre|code|[#.:\[])
-            [\w\-\s>:+~.,\[\]="'()*%/#-]*
-        )
-        \{
-            [^{}]*:[^{}]*
-        \}
-        """,
+        "(?ix)" +
+        "(?<![\\w-])" +
+        "(?:" +
+            "@(?:font-face|keyframes|media|page|property|supports|layer|container)\\b[^{}]*" +
+            "|" +
+            CommonCssSelectorStarts +
+            "[\\w\\-\\s>:+~.,\\[\\]=\"'()*%/#-]*" +
+        ")" +
+        "\\{" +
+            "[^{}]*:[^{}]*" +
+        "\\}",
         RegexOptions.Compiled);
 
     private static readonly Regex EmptyCssAtRulePattern = new(
@@ -126,13 +128,15 @@ public static class HtmlTextExtractor
             return string.Empty;
 
         var cleaned = text;
-        string previous;
-        do
+        for (var pass = 0; pass < MaxCssCleanupPasses; pass++)
         {
-            previous = cleaned;
+            var previous = cleaned;
             cleaned = CssRulePattern.Replace(cleaned, " ");
             cleaned = EmptyCssAtRulePattern.Replace(cleaned, " ");
-        } while (!string.Equals(cleaned, previous, StringComparison.Ordinal));
+
+            if (string.Equals(cleaned, previous, StringComparison.Ordinal))
+                break;
+        }
 
         var lines = cleaned
             .Split('\n', StringSplitOptions.None)
