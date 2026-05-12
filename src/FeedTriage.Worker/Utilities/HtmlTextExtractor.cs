@@ -14,21 +14,25 @@ public static class HtmlTextExtractor
         @"(?:\*|html|body|main|header|footer|article|section|aside|nav|div|span|p|a|img|button|input|form|table|tr|td|th|ul|ol|li|h[1-6]|svg|path|pre|code|[#.:\[])";
 
     private static readonly Regex CssRulePattern = new(
-        "(?ix)" +
-        "(?<![\\w-])" +
-        "(?:" +
-            "@(?:font-face|keyframes|media|page|property|supports|layer|container)\\b[^{}]*" +
-            "|" +
-            CommonCssSelectorStarts +
-            "[\\w\\-\\s>:+~.,\\[\\]=\"'()*%/#-]*" +
-        ")" +
-        "\\{" +
-            "[^{}]*:[^{}]*" +
-        "\\}",
+        $@"(?ix)
+        (?<![\w-])
+        (?:
+            @(?:font-face|keyframes|media|page|property|supports|layer|container)\b[^{{}}]*
+            |
+            {CommonCssSelectorStarts}
+            [\w\-\s>:+~.,\[\]=""'()*%/#-]*
+        )
+        \{{
+            [^{{}}]*:[^{{}}]*
+        \}}",
         RegexOptions.Compiled);
 
     private static readonly Regex EmptyCssAtRulePattern = new(
         @"(?ix)@(?:media|supports|layer|container)\b[^{}]*\{\s*\}",
+        RegexOptions.Compiled);
+
+    private static readonly Regex InlineWhitespacePattern = new(
+        @"[^\S\n]+",
         RegexOptions.Compiled);
 
     private static readonly HashSet<string> SkipTags = new(StringComparer.OrdinalIgnoreCase)
@@ -138,9 +142,10 @@ public static class HtmlTextExtractor
                 break;
         }
 
+        cleaned = InlineWhitespacePattern.Replace(cleaned, " ");
         var lines = cleaned
             .Split('\n', StringSplitOptions.None)
-            .Select(static line => string.Join(' ', line.Split(' ', StringSplitOptions.RemoveEmptyEntries)))
+            .Select(static line => line.Trim())
             .Where(static line => line.Length > 0);
 
         return string.Join("\n", lines);
