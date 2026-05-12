@@ -1,5 +1,6 @@
 using HtmlAgilityPack;
 using System.Text;
+using System.Text.RegularExpressions;
 
 namespace FeedTriage.Worker.Utilities;
 
@@ -8,6 +9,26 @@ namespace FeedTriage.Worker.Utilities;
 /// </summary>
 public static class HtmlTextExtractor
 {
+    private static readonly Regex CssRulePattern = new(
+        """
+        (?ix)
+        (?<![\w-])
+        (?:
+            @(?:font-face|keyframes|media|page|property|supports|layer|container)\b[^{}]*
+            |
+            (?:\*|html|body|main|header|footer|article|section|aside|nav|div|span|p|a|img|button|input|form|table|tr|td|th|ul|ol|li|h[1-6]|svg|path|pre|code|[#.:\[])
+            [\w\-\s>:+~.,\[\]="'()*%/#-]*
+        )
+        \{
+            [^{}]*:[^{}]*
+        \}
+        """,
+        RegexOptions.Compiled);
+
+    private static readonly Regex EmptyCssAtRulePattern = new(
+        @"(?ix)@(?:media|supports|layer|container)\b[^{}]*\{\s*\}",
+        RegexOptions.Compiled);
+
     private static readonly HashSet<string> SkipTags = new(StringComparer.OrdinalIgnoreCase)
     {
         "script", "style", "noscript", "head", "meta", "link", "iframe", "object", "embed"
@@ -34,7 +55,8 @@ public static class HtmlTextExtractor
             .Select(l => l.Trim())
             .Where(l => l.Length > 0);
 
-        return string.Join("\n", lines);
+        var text = string.Join("\n", lines);
+        return StripCssNoise(text);
     }
 
     /// <summary>
@@ -97,4 +119,26 @@ public static class HtmlTextExtractor
             or "h1" or "h2" or "h3" or "h4" or "h5" or "h6"
             or "ul" or "ol" or "li" or "blockquote" or "pre" or "br" or "hr"
             or "table" or "tr" or "td" or "th";
+
+    private static string StripCssNoise(string text)
+    {
+        if (string.IsNullOrWhiteSpace(text))
+            return string.Empty;
+
+        var cleaned = text;
+        string previous;
+        do
+        {
+            previous = cleaned;
+            cleaned = CssRulePattern.Replace(cleaned, " ");
+            cleaned = EmptyCssAtRulePattern.Replace(cleaned, " ");
+        } while (!string.Equals(cleaned, previous, StringComparison.Ordinal));
+
+        var lines = cleaned
+            .Split('\n', StringSplitOptions.None)
+            .Select(static line => string.Join(' ', line.Split(' ', StringSplitOptions.RemoveEmptyEntries)))
+            .Where(static line => line.Length > 0);
+
+        return string.Join("\n", lines);
+    }
 }
