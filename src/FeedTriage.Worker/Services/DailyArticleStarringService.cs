@@ -54,15 +54,15 @@ public sealed class DailyArticleStarringService : IDailyArticleStarringService
                         await _miniflux.BookmarkAsync(article.EntryId, ct);
                     }
 
-                    await _scores.SaveLastDailyStarringRunAsync(
-                        new DateTimeOffset(scoreDate.ToDateTime(TimeOnly.MaxValue), TimeSpan.Zero),
-                        ct);
-
                     _logger.LogInformation(
                         "Daily starring completed for {ScoreDate}: starred {Count} article(s)",
                         scoreDate,
                         topScores.Count);
                 }
+
+                await _scores.SaveLastDailyStarringRunAsync(
+                    new DateTimeOffset(lastCompletedDate.ToDateTime(TimeOnly.MaxValue), TimeSpan.Zero),
+                    ct);
             }
         }
         finally

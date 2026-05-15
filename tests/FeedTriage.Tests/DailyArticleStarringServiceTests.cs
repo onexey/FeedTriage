@@ -13,6 +13,7 @@ public sealed class DailyArticleStarringServiceTests
     public async Task RunPendingAsync_StarsTopFiveForEachPendingDay_AndUpdatesLastRun()
     {
         var yesterday = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(-1));
+        DateTimeOffset? savedLastRun = null;
         var scoreRepository = new Mock<IArticleScoreRepository>();
         scoreRepository.Setup(r => r.GetLastDailyStarringRunAsync(It.IsAny<CancellationToken>()))
             .ReturnsAsync((DateTimeOffset?)null);
@@ -32,6 +33,7 @@ public sealed class DailyArticleStarringServiceTests
                 .Take(5)
                 .ToList());
         scoreRepository.Setup(r => r.SaveLastDailyStarringRunAsync(It.IsAny<DateTimeOffset>(), It.IsAny<CancellationToken>()))
+            .Callback<DateTimeOffset, CancellationToken>((runAt, _) => savedLastRun = runAt)
             .Returns(Task.CompletedTask);
         scoreRepository.Setup(r => r.DeleteScoresOlderThanAsync(It.IsAny<DateOnly>(), It.IsAny<CancellationToken>()))
             .Returns(Task.CompletedTask);
@@ -50,5 +52,35 @@ public sealed class DailyArticleStarringServiceTests
         miniflux.Verify(m => m.BookmarkAsync(It.IsAny<long>(), It.IsAny<CancellationToken>()), Times.Exactly(5));
         scoreRepository.Verify(r => r.SaveLastDailyStarringRunAsync(It.IsAny<DateTimeOffset>(), It.IsAny<CancellationToken>()), Times.Once);
         scoreRepository.Verify(r => r.DeleteScoresOlderThanAsync(It.IsAny<DateOnly>(), It.IsAny<CancellationToken>()), Times.Once);
+        Assert.Equal(yesterday, DateOnly.FromDateTime(savedLastRun!.Value.UtcDateTime));
+    }
+
+    [Fact]
+    public async Task RunPendingAsync_AdvancesWatermark_WhenPendingWindowHasNoScoredDays()
+    {
+        var yesterday = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(-1));
+        DateTimeOffset? savedLastRun = null;
+        var scoreRepository = new Mock<IArticleScoreRepository>();
+        scoreRepository.Setup(r => r.GetLastDailyStarringRunAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync((DateTimeOffset?)null);
+        scoreRepository.Setup(r => r.GetScoredDatesAsync(It.IsAny<DateOnly>(), It.IsAny<DateOnly>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync([]);
+        scoreRepository.Setup(r => r.SaveLastDailyStarringRunAsync(It.IsAny<DateTimeOffset>(), It.IsAny<CancellationToken>()))
+            .Callback<DateTimeOffset, CancellationToken>((runAt, _) => savedLastRun = runAt)
+            .Returns(Task.CompletedTask);
+        scoreRepository.Setup(r => r.DeleteScoresOlderThanAsync(It.IsAny<DateOnly>(), It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
+
+        var miniflux = new Mock<IMinifluxClient>();
+        var service = new DailyArticleStarringService(
+            scoreRepository.Object,
+            miniflux.Object,
+            NullLogger<DailyArticleStarringService>.Instance);
+
+        await service.RunPendingAsync();
+
+        miniflux.Verify(m => m.BookmarkAsync(It.IsAny<long>(), It.IsAny<CancellationToken>()), Times.Never);
+        scoreRepository.Verify(r => r.SaveLastDailyStarringRunAsync(It.IsAny<DateTimeOffset>(), It.IsAny<CancellationToken>()), Times.Once);
+        Assert.Equal(yesterday, DateOnly.FromDateTime(savedLastRun!.Value.UtcDateTime));
     }
 }

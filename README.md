@@ -95,7 +95,7 @@ The current implementation includes a Miniflux client and an Ollama provider ada
 2. Run Stage 1 screening on the title and excerpt using a faster model.
 3. Fetch full article content for entries that pass screening.
 4. Run Stage 2 review using a stronger model.
-5. Score every focus topic from 0-5, sum the scores, and mark entries with totals below 6 as read.
+5. Score every focus topic from 0-5, use the summed score for ranking, and mark entries as read when no topic score is higher than 2.
 6. Persist daily article scores in SQLite under `./data`.
 7. At the end of each UTC day, bookmark the top 5 scored entries from that day in Miniflux.
 8. Keep higher-scoring entries unread so they stand out in Miniflux.
@@ -120,7 +120,7 @@ Key behavior:
 - Screening and review use independent ordered provider chains.
 - The first provider that returns a valid decision wins.
 - If every provider in a stage fails, the entry stays unread.
-- Review returns per-topic scores from 0-5, and entries with total scores below 6 are marked as read.
+- Review returns per-topic scores from 0-5, and entries are marked as read when every topic score is 2 or lower.
 - FeedTriage bookmarks the top 5 entries from each completed UTC day and retries missed daily bookmark runs on startup.
 - Daily score history is retained for 5 days in `./data/scores.db`.
 - Dry run evaluates entries but does not mutate Miniflux read state or local run state.

@@ -10,7 +10,7 @@ namespace FeedTriage.Worker.Services;
 /// <inheritdoc />
 public sealed class ArticleProcessor : IArticleProcessor
 {
-    private const int MinimumKeepUnreadScore = 6;
+    private const int KeepUnreadTopicScoreThreshold = 2;
 
     private readonly IMinifluxClient _miniflux;
     private readonly IAiDecisionPipeline _ai;
@@ -213,7 +213,8 @@ public sealed class ArticleProcessor : IArticleProcessor
                     return result;
                 }
 
-                result.ReviewPassed = (result.ReviewPassed ?? false) || reviewDecision.Passed;
+                var keepUnread = HasRelevantTopicScore(reviewDecision.TopicScores);
+                result.ReviewPassed = (result.ReviewPassed ?? false) || keepUnread;
                 result.DecisionReason = reviewDecision.Reason;
 
                 if (bestScoreDecision is null || reviewDecision.TotalScore > bestScoreDecision.TotalScore)
@@ -222,16 +223,16 @@ public sealed class ArticleProcessor : IArticleProcessor
                 }
 
                 _logger.LogInformation(
-                    "Entry {Id} {CandidateType} review: passed={Passed} totalScore={TotalScore} [{Provider}/{Model}] reason={Reason}",
-                    entry.Id,
-                    candidate.CandidateType,
-                    reviewDecision.Passed,
-                    reviewDecision.TotalScore,
-                    reviewDecision.ProviderInstance,
-                    reviewDecision.Model,
-                    reviewDecision.Reason);
+                        "Entry {Id} {CandidateType} review: passed={Passed} totalScore={TotalScore} [{Provider}/{Model}] reason={Reason}",
+                        entry.Id,
+                        candidate.CandidateType,
+                        keepUnread,
+                        reviewDecision.TotalScore,
+                        reviewDecision.ProviderInstance,
+                        reviewDecision.Model,
+                        reviewDecision.Reason);
 
-                if (reviewDecision.TotalScore >= MinimumKeepUnreadScore)
+                if (keepUnread)
                 {
                     matchingCandidates.Add((candidate, reviewDecision));
                 }
@@ -240,11 +241,6 @@ public sealed class ArticleProcessor : IArticleProcessor
             if (bestScoreDecision is not null)
             {
                 ApplyTopicScores(result, bestScoreDecision.TopicScores);
-                await TryPersistScoreAsync(entry, result, ct);
-            }
-            else if (result.ScreeningPassed == false)
-            {
-                ApplyTopicScores(result, CreateZeroTopicScores());
                 await TryPersistScoreAsync(entry, result, ct);
             }
 
@@ -327,7 +323,7 @@ public sealed class ArticleProcessor : IArticleProcessor
         }
 
         result.TotalScore = result.TopicScores.Values.Sum();
-        result.ReviewPassed = result.TotalScore >= MinimumKeepUnreadScore;
+        result.ReviewPassed = HasRelevantTopicScore(result.TopicScores);
     }
 
     private IReadOnlyDictionary<string, int> NormalizeTopicScores(
@@ -344,12 +340,6 @@ public sealed class ArticleProcessor : IArticleProcessor
 
         return normalized;
     }
-
-    private IReadOnlyDictionary<string, int> CreateZeroTopicScores() =>
-        _filtering.GetFocusTopicList().ToDictionary(
-            topic => topic,
-            _ => 0,
-            StringComparer.OrdinalIgnoreCase);
 
     private async Task TryPersistScoreAsync(
         MinifluxEntry entry,
@@ -384,6 +374,9 @@ public sealed class ArticleProcessor : IArticleProcessor
             _logger.LogWarning(ex, "Failed to persist topic scores for entry {EntryId}", entry.Id);
         }
     }
+
+    private static bool HasRelevantTopicScore(IReadOnlyDictionary<string, int> topicScores) =>
+        topicScores.Values.Any(score => score > KeepUnreadTopicScoreThreshold);
 
     private async Task<ScreeningContentResult> BuildScreeningCandidatesAsync(
         MinifluxEntry entry,

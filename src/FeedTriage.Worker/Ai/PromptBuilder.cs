@@ -73,6 +73,6 @@ public static class PromptBuilder
             "Respond with ONLY a JSON object in this exact format (no extra text, no markdown):\n" +
             $"{{\"passed\": true, \"reason\": \"one short sentence explaining your decision\", \"topicScores\": {{ {scoringJsonShape} }} }}\n\n" +
             "Use the exact target topics above as the keys inside \"topicScores\".\n" +
-            "Set \"passed\" to true only if the sum of all topic scores is 6 or higher. Otherwise set it to false.";
+            "Set \"passed\" to true only if at least one topic score is higher than 2. Otherwise set it to false.";
     }
 }

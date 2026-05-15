@@ -56,6 +56,19 @@ public sealed class ArticleProcessorTests
         }
     };
 
+    private static readonly AiDecision SingleStrongTopicDecision = new()
+    {
+        Passed = true,
+        Reason = "One topic is clearly useful",
+        ProviderInstance = "test",
+        Model = "test-model",
+        TopicScores = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["software engineering"] = 3,
+            ["team leadership"] = 0
+        }
+    };
+
     private static ArticleProcessor CreateProcessor(
         IMinifluxClient? miniflux = null,
         IAiDecisionPipeline? ai = null,
@@ -138,24 +151,28 @@ public sealed class ArticleProcessorTests
             .ReturnsAsync(new List<MinifluxEntry> { SampleEntry });
         minifluxMock.Setup(m => m.MarkAsReadAsync(It.IsAny<IEnumerable<long>>(), It.IsAny<CancellationToken>()))
             .Returns(Task.CompletedTask);
+        var scoreMock = new Mock<IArticleScoreRepository>();
+        scoreMock.Setup(s => s.SaveScoreAsync(It.IsAny<StoredArticleScore>(), It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
 
         var ai = DefaultAi(screenDecision: FailedDecision, reviewDecision: null);
 
-        var processor = CreateProcessor(minifluxMock.Object, ai: ai);
+        var processor = CreateProcessor(minifluxMock.Object, ai: ai, scores: scoreMock.Object);
         var summary = await processor.ProcessAsync();
 
         Assert.Single(summary.Results);
         var result = summary.Results[0];
         Assert.False(result.ScreeningPassed);
-        Assert.False(result.ReviewPassed);
+        Assert.Null(result.ReviewPassed);
         Assert.Empty(result.RelevantUrls);
         Assert.True(result.MarkedAsRead);
         Assert.Equal(0, result.TotalScore);
-        Assert.Equal(0, result.TopicScores["software engineering"]);
-        Assert.Equal(0, result.TopicScores["team leadership"]);
+        Assert.Empty(result.TopicScores);
+        Assert.Equal(0, summary.ScoredEntries);
 
         var aiMock = Mock.Get(ai);
         aiMock.Verify(a => a.EvaluateReviewAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Never);
+        scoreMock.Verify(s => s.SaveScoreAsync(It.IsAny<StoredArticleScore>(), It.IsAny<CancellationToken>()), Times.Never);
     }
 
     [Fact]
@@ -196,6 +213,22 @@ public sealed class ArticleProcessorTests
         Assert.False(result.ReviewPassed);
         Assert.Empty(result.RelevantUrls);
         Assert.True(result.MarkedAsRead);
+        Assert.Equal(3, result.TotalScore);
+    }
+
+    [Fact]
+    public async Task Stage2_LeavesUnread_WhenAnyTopicScoreIsGreaterThanTwo_EvenIfTotalIsBelowSix()
+    {
+        var processor = CreateProcessor(
+            ai: DefaultAi(screenDecision: PassedDecision, reviewDecision: SingleStrongTopicDecision));
+
+        var summary = await processor.ProcessAsync();
+
+        var result = Assert.Single(summary.Results);
+        Assert.True(result.ScreeningPassed);
+        Assert.True(result.ReviewPassed);
+        Assert.False(result.MarkedAsRead);
+        Assert.Equal(new[] { SampleEntry.Url }, result.RelevantUrls);
         Assert.Equal(3, result.TotalScore);
     }
 
