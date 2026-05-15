@@ -123,6 +123,15 @@ public sealed class ConfigurationValidationTests
     }
 
     [Fact]
+    public void StateOptions_DefaultsToJsonStateFile_AndSqliteScoreDatabase()
+    {
+        var opts = new StateOptions();
+
+        Assert.Equal("./data/state.json", opts.FilePath);
+        Assert.Equal("./data/scores.db", opts.ScoreDatabasePath);
+    }
+
+    [Fact]
     public void ConsoleLoggingDefaults_UsesValidTimestampFormat()
     {
         const string brokenTimestampFormat = "yyyy-MM-dd'T'HH':'mm':'ss.fffzzz': ";

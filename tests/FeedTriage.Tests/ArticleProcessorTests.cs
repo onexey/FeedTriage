@@ -30,10 +30,37 @@ public sealed class ArticleProcessorTests
         Passed = false, Reason = "Off-topic", ProviderInstance = "test", Model = "test-model"
     };
 
+    private static readonly AiDecision HighScoreDecision = new()
+    {
+        Passed = true,
+        Reason = "Highly valuable",
+        ProviderInstance = "test",
+        Model = "test-model",
+        TopicScores = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["software engineering"] = 4,
+            ["team leadership"] = 3
+        }
+    };
+
+    private static readonly AiDecision LowScoreDecision = new()
+    {
+        Passed = false,
+        Reason = "Somewhat relevant but low value",
+        ProviderInstance = "test",
+        Model = "test-model",
+        TopicScores = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["software engineering"] = 2,
+            ["team leadership"] = 1
+        }
+    };
+
     private static ArticleProcessor CreateProcessor(
         IMinifluxClient? miniflux = null,
         IAiDecisionPipeline? ai = null,
         IRunStateRepository? state = null,
+        IArticleScoreRepository? scores = null,
         IEnumerable<IEntryScreeningContentHandler>? screeningContentHandlers = null,
         bool dryRun = false,
         int? maxArticles = null)
@@ -41,9 +68,22 @@ public sealed class ArticleProcessorTests
         var minifluxMock = miniflux ?? DefaultMiniflux();
         var aiMock = ai ?? DefaultAi();
         var stateMock = state ?? DefaultState();
+        var scoreMock = scores ?? DefaultScores();
         var handlers = screeningContentHandlers ?? [];
+        var filteringOptions = Options.Create(new FilteringOptions
+        {
+            FocusTopics = "software engineering,team leadership"
+        });
         var opts = Options.Create(new ProcessingOptions { DryRun = dryRun, MaxArticlesPerRun = maxArticles });
-        return new ArticleProcessor(minifluxMock, aiMock, stateMock, handlers, opts, NullLogger<ArticleProcessor>.Instance);
+        return new ArticleProcessor(
+            minifluxMock,
+            aiMock,
+            stateMock,
+            scoreMock,
+            handlers,
+            filteringOptions,
+            opts,
+            NullLogger<ArticleProcessor>.Instance);
     }
 
     private static IMinifluxClient DefaultMiniflux(
@@ -70,6 +110,14 @@ public sealed class ArticleProcessorTests
         return mock.Object;
     }
 
+    private static IArticleScoreRepository DefaultScores()
+    {
+        var mock = new Mock<IArticleScoreRepository>();
+        mock.Setup(s => s.SaveScoreAsync(It.IsAny<StoredArticleScore>(), It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
+        return mock.Object;
+    }
+
     private static IAiDecisionPipeline DefaultAi(
         AiDecision? screenDecision = null,
         AiDecision? reviewDecision = null)
@@ -78,7 +126,7 @@ public sealed class ArticleProcessorTests
         mock.Setup(a => a.EvaluateScreeningAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(screenDecision ?? PassedDecision);
         mock.Setup(a => a.EvaluateReviewAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync(reviewDecision ?? PassedDecision);
+            .ReturnsAsync(reviewDecision ?? HighScoreDecision);
         return mock.Object;
     }
 
@@ -99,9 +147,12 @@ public sealed class ArticleProcessorTests
         Assert.Single(summary.Results);
         var result = summary.Results[0];
         Assert.False(result.ScreeningPassed);
-        Assert.Null(result.ReviewPassed);
+        Assert.False(result.ReviewPassed);
         Assert.Empty(result.RelevantUrls);
         Assert.True(result.MarkedAsRead);
+        Assert.Equal(0, result.TotalScore);
+        Assert.Equal(0, result.TopicScores["software engineering"]);
+        Assert.Equal(0, result.TopicScores["team leadership"]);
 
         var aiMock = Mock.Get(ai);
         aiMock.Verify(a => a.EvaluateReviewAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Never);
@@ -128,13 +179,15 @@ public sealed class ArticleProcessorTests
         Assert.Equal(new[] { SampleEntry.Url }, result.RelevantUrls);
         Assert.Equal(1, summary.RelevantMatches);
         Assert.Equal(0, summary.MarkedAsRead);
+        Assert.Equal(7, result.TotalScore);
+        Assert.Equal(1, summary.ScoredEntries);
     }
 
     [Fact]
     public async Task Stage1True_Stage2False_MarksRead()
     {
         var processor = CreateProcessor(
-            ai: DefaultAi(screenDecision: PassedDecision, reviewDecision: FailedDecision));
+            ai: DefaultAi(screenDecision: PassedDecision, reviewDecision: LowScoreDecision));
 
         var summary = await processor.ProcessAsync();
 
@@ -143,6 +196,7 @@ public sealed class ArticleProcessorTests
         Assert.False(result.ReviewPassed);
         Assert.Empty(result.RelevantUrls);
         Assert.True(result.MarkedAsRead);
+        Assert.Equal(3, result.TotalScore);
     }
 
     [Fact]
@@ -215,6 +269,7 @@ public sealed class ArticleProcessorTests
         var stateMock = new Mock<IRunStateRepository>();
         stateMock.Setup(s => s.GetLastPublishedAtAsync(It.IsAny<CancellationToken>()))
             .ReturnsAsync((DateTimeOffset?)null);
+        var scoreMock = new Mock<IArticleScoreRepository>();
 
         var minifluxMock = new Mock<IMinifluxClient>();
         minifluxMock.Setup(m => m.GetUnreadEntriesAsync(It.IsAny<int?>(), It.IsAny<DateTimeOffset?>(), It.IsAny<CancellationToken>()))
@@ -224,8 +279,9 @@ public sealed class ArticleProcessorTests
 
         var processor = CreateProcessor(
             miniflux: minifluxMock.Object,
-            ai: DefaultAi(screenDecision: PassedDecision, reviewDecision: FailedDecision),
+            ai: DefaultAi(screenDecision: PassedDecision, reviewDecision: LowScoreDecision),
             state: stateMock.Object,
+            scores: scoreMock.Object,
             dryRun: true);
         var summary = await processor.ProcessAsync();
 
@@ -235,6 +291,7 @@ public sealed class ArticleProcessorTests
 
         minifluxMock.Verify(m => m.MarkAsReadAsync(It.IsAny<IEnumerable<long>>(), It.IsAny<CancellationToken>()), Times.Never);
         stateMock.Verify(s => s.SaveLastPublishedAtAsync(It.IsAny<DateTimeOffset>(), It.IsAny<CancellationToken>()), Times.Never);
+        scoreMock.Verify(s => s.SaveScoreAsync(It.IsAny<StoredArticleScore>(), It.IsAny<CancellationToken>()), Times.Never);
     }
 
     [Fact]
@@ -276,7 +333,7 @@ public sealed class ArticleProcessorTests
 
         var processor = CreateProcessor(
             miniflux: minifluxMock.Object,
-            ai: DefaultAi(screenDecision: PassedDecision, reviewDecision: FailedDecision));
+            ai: DefaultAi(screenDecision: PassedDecision, reviewDecision: LowScoreDecision));
         var summary = await processor.ProcessAsync();
 
         var result = Assert.Single(summary.Results);
@@ -374,9 +431,9 @@ public sealed class ArticleProcessorTests
         aiMock.Setup(a => a.EvaluateScreeningAsync($"{hackerNewsEntry.Title} (Hacker News discussion)", It.IsAny<string>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(PassedDecision);
         aiMock.Setup(a => a.EvaluateReviewAsync(hackerNewsEntry.Title, It.Is<string>(content => content.Contains("code review workflows")), It.IsAny<CancellationToken>()))
-            .ReturnsAsync(PassedDecision);
+            .ReturnsAsync(HighScoreDecision);
         aiMock.Setup(a => a.EvaluateReviewAsync($"{hackerNewsEntry.Title} (Hacker News discussion)", It.Is<string>(content => content.Contains("startup fundraising")), It.IsAny<CancellationToken>()))
-            .ReturnsAsync(FailedDecision);
+            .ReturnsAsync(LowScoreDecision);
 
         var screeningHandler = new HackerNewsScreeningContentHandler(
             minifluxMock.Object,
@@ -425,7 +482,7 @@ public sealed class ArticleProcessorTests
         aiMock.Setup(a => a.EvaluateScreeningAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(PassedDecision);
         aiMock.Setup(a => a.EvaluateReviewAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync(PassedDecision);
+            .ReturnsAsync(HighScoreDecision);
 
         var screeningHandler = new HackerNewsScreeningContentHandler(
             minifluxMock.Object,
@@ -476,7 +533,7 @@ public sealed class ArticleProcessorTests
         aiMock.Setup(a => a.EvaluateScreeningAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(PassedDecision);
         aiMock.Setup(a => a.EvaluateReviewAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync(FailedDecision);
+            .ReturnsAsync(LowScoreDecision);
 
         var screeningHandler = new HackerNewsScreeningContentHandler(
             minifluxMock.Object,
@@ -491,5 +548,25 @@ public sealed class ArticleProcessorTests
         await processor.ProcessAsync();
 
         minifluxMock.Verify(m => m.FetchContentAsync(42, It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task ReviewScores_ArePersistedWithPerTopicValues()
+    {
+        StoredArticleScore? persistedScore = null;
+        var scoreMock = new Mock<IArticleScoreRepository>();
+        scoreMock.Setup(s => s.SaveScoreAsync(It.IsAny<StoredArticleScore>(), It.IsAny<CancellationToken>()))
+            .Callback<StoredArticleScore, CancellationToken>((score, _) => persistedScore = score)
+            .Returns(Task.CompletedTask);
+
+        var processor = CreateProcessor(scores: scoreMock.Object);
+
+        var summary = await processor.ProcessAsync();
+
+        var result = Assert.Single(summary.Results);
+        Assert.NotNull(persistedScore);
+        Assert.Equal(result.TotalScore, persistedScore!.TotalScore);
+        Assert.Equal(4, persistedScore.TopicScores["software engineering"]);
+        Assert.Equal(3, persistedScore.TopicScores["team leadership"]);
     }
 }

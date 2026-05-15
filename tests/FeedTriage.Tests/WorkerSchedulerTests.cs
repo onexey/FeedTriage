@@ -13,6 +13,7 @@ public sealed class WorkerSchedulerTests
 {
     private static WorkerService CreateWorker(
         IArticleProcessor processor,
+        IDailyArticleStarringService? dailyArticleStarring = null,
         bool runOnStart = true,
         TimeSpan? interval = null)
     {
@@ -21,7 +22,11 @@ public sealed class WorkerSchedulerTests
             RunOnStart = runOnStart,
             RunInterval = interval ?? TimeSpan.FromMilliseconds(50)
         });
-        return new WorkerService(processor, opts, NullLogger<WorkerService>.Instance);
+        return new WorkerService(
+            processor,
+            dailyArticleStarring ?? Mock.Of<IDailyArticleStarringService>(),
+            opts,
+            NullLogger<WorkerService>.Instance);
     }
 
     [Fact]
@@ -104,5 +109,28 @@ public sealed class WorkerSchedulerTests
         await worker.StopAsync(default);
 
         processorMock.Verify(p => p.ProcessAsync(It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task Worker_RunsDailyStarringCatchUp_OnStartup_EvenWhenRunOnStartIsFalse()
+    {
+        var processorMock = new Mock<IArticleProcessor>();
+        var starringMock = new Mock<IDailyArticleStarringService>();
+        starringMock.Setup(s => s.RunPendingAsync(It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
+
+        var worker = CreateWorker(
+            processorMock.Object,
+            starringMock.Object,
+            runOnStart: false,
+            interval: TimeSpan.FromHours(24));
+
+        using var cts = new CancellationTokenSource(TimeSpan.FromMilliseconds(300));
+        await worker.StartAsync(cts.Token);
+        await Task.Delay(150);
+        await worker.StopAsync(default);
+
+        starringMock.Verify(s => s.RunPendingAsync(It.IsAny<CancellationToken>()), Times.AtLeastOnce);
+        processorMock.Verify(p => p.ProcessAsync(It.IsAny<CancellationToken>()), Times.Never);
     }
 }

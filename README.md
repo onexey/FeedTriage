@@ -7,7 +7,7 @@
 <!-- markdownlint-disable-next-line MD033 -->
 <a href="https://www.buymeacoffee.com/onexey" target="_blank"><img src="https://cdn.buymeacoffee.com/buttons/v2/default-yellow.png" alt="Buy Me a Coffee" height="30"></a>
 
-FeedTriage is a .NET 10 background worker that reads unread entries from Miniflux, uses AI to decide which entries are worth keeping, marks irrelevant items as read, and leaves useful items unread for manual follow-up.
+FeedTriage is a .NET 10 background worker that reads unread entries from Miniflux, uses AI to score each article against your focus topics, marks low-value items as read, and leaves useful items unread for manual follow-up.
 
 It is a triage service, not a summarizer. The core job is to filter signal from noise with a two-stage AI relevance pipeline.
 
@@ -95,8 +95,10 @@ The current implementation includes a Miniflux client and an Ollama provider ada
 2. Run Stage 1 screening on the title and excerpt using a faster model.
 3. Fetch full article content for entries that pass screening.
 4. Run Stage 2 review using a stronger model.
-5. Mark irrelevant entries as read.
-6. Leave relevant entries unread so they stand out in Miniflux.
+5. Score every focus topic from 0-5, sum the scores, and mark entries with totals below 6 as read.
+6. Persist daily article scores in SQLite under `./data`.
+7. At the end of each UTC day, bookmark the top 5 scored entries from that day in Miniflux.
+8. Keep higher-scoring entries unread so they stand out in Miniflux.
 
 If AI evaluation fails or full-content retrieval fails, the entry stays unread so it can be retried later.
 
@@ -109,14 +111,18 @@ The worker is split into a few focused parts:
 - Miniflux client for unread entry retrieval, article extraction, and mark-as-read calls
 - AI decision pipeline for stage-specific provider fallback chains
 - Ollama provider adapter behind a shared AI provider interface
-- Article processor that orchestrates triage and state updates
+- Article processor that orchestrates triage, scoring, and state updates
 - Run state repository that stores the newest processed publication timestamp
+- SQLite score repository that stores per-topic daily scores and daily starring metadata
 
 Key behavior:
 
 - Screening and review use independent ordered provider chains.
 - The first provider that returns a valid decision wins.
 - If every provider in a stage fails, the entry stays unread.
+- Review returns per-topic scores from 0-5, and entries with total scores below 6 are marked as read.
+- FeedTriage bookmarks the top 5 entries from each completed UTC day and retries missed daily bookmark runs on startup.
+- Daily score history is retained for 5 days in `./data/scores.db`.
 - Dry run evaluates entries but does not mutate Miniflux read state or local run state.
 
 ## Requirements
@@ -144,6 +150,7 @@ If a key is omitted entirely, FeedTriage uses the default shown below.
 | `FEEDTRIAGE__PROCESSING__DRY_RUN` | | `false` | Evaluate only; never mark entries as read |
 | `FEEDTRIAGE__PROCESSING__MAX_RETRIES_PER_ENTRY` | | `5` | Retries before giving up on a failed entry |
 | `FEEDTRIAGE__STATE__FILE_PATH` | | `./data/state.json` | JSON file used to persist the newest processed publication time |
+| `FEEDTRIAGE__STATE__SCORE_DATABASE_PATH` | | `./data/scores.db` | SQLite database used for daily article scores and daily starring metadata |
 | `FEEDTRIAGE__AI__SCREENING_CHAIN` | | `screen_ollama_small` | Ordered comma-separated provider names for Stage 1 |
 | `FEEDTRIAGE__AI__REVIEW_CHAIN` | | `review_ollama_large` | Ordered comma-separated provider names for Stage 2 |
 | `FEEDTRIAGE__AI__PROVIDERS__SCREEN_OLLAMA_SMALL__TYPE` | | `ollama` | Provider type for the default Stage 1 provider |

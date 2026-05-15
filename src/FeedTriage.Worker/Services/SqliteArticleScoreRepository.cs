@@ -31,7 +31,7 @@ public sealed class SqliteArticleScoreRepository : IArticleScoreRepository
         await using var connection = CreateConnection();
         await connection.OpenAsync(ct);
         await EnableForeignKeysAsync(connection, ct);
-        await using var transaction = await connection.BeginTransactionAsync(ct);
+        await using var transaction = (SqliteTransaction)await connection.BeginTransactionAsync(ct);
 
         var now = DateTimeOffset.UtcNow.ToString("O");
         var scoreDate = score.ScoreDate.ToString("yyyy-MM-dd");

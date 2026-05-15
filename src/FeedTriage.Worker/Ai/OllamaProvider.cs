@@ -205,10 +205,11 @@ public sealed class OllamaProvider : IAiProvider
                 continue;
             }
 
-            var parsedValue = value.GetValueKind() switch
+            var parsedValue = value switch
             {
-                JsonValueKind.Number when value.TryGetValue<int>(out var intValue) => intValue,
-                JsonValueKind.String when int.TryParse(value.GetValue<string>(), out var stringValue) => stringValue,
+                JsonValue jsonValue when jsonValue.TryGetValue<int>(out var intValue) => intValue,
+                JsonValue jsonValue when jsonValue.TryGetValue<string>(out var stringValue)
+                    && int.TryParse(stringValue, out var parsedStringValue) => parsedStringValue,
                 _ => 0
             };
 

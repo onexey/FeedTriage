@@ -56,30 +56,23 @@ public static class PromptBuilder
             ? fullContent[..MaxContentCharsForReview] + "…[truncated]"
             : fullContent;
 
-        return $$"""
-            You are a relevance reviewer. Your task is to score how valuable an article is for each target topic.
-
-            Relevant topics: {{focusTopicsText}}{{antiTopicsSection}}
-
-            Score every target topic from 0 to 5 using ONLY integers:
-            - 0 = unrelated to that topic
-            - 1 = barely related and not useful
-            - 2 = somewhat related but low value
-            - 3 = clearly related and somewhat useful
-            - 4 = strongly related and valuable
-            - 5 = extremely related and highly valuable
-
-            Value matters as much as topicality. Do not give high scores just because a topic is mentioned in passing.
-
-            Article title: {{title}}
-            Article content:
-            {{content}}
-
-            Respond with ONLY a JSON object in this exact format (no extra text, no markdown):
-            {"passed": true, "reason": "one short sentence explaining your decision", "topicScores": { {{scoringJsonShape}} }}
-
-            Use the exact target topics above as the keys inside "topicScores".
-            Set "passed" to true only if the sum of all topic scores is 6 or higher. Otherwise set it to false.
-            """;
+        return
+            "You are a relevance reviewer. Your task is to score how valuable an article is for each target topic.\n\n" +
+            $"Relevant topics: {focusTopicsText}{antiTopicsSection}\n\n" +
+            "Score every target topic from 0 to 5 using ONLY integers:\n" +
+            "- 0 = unrelated to that topic\n" +
+            "- 1 = barely related and not useful\n" +
+            "- 2 = somewhat related but low value\n" +
+            "- 3 = clearly related and somewhat useful\n" +
+            "- 4 = strongly related and valuable\n" +
+            "- 5 = extremely related and highly valuable\n\n" +
+            "Value matters as much as topicality. Do not give high scores just because a topic is mentioned in passing.\n\n" +
+            $"Article title: {title}\n" +
+            "Article content:\n" +
+            $"{content}\n\n" +
+            "Respond with ONLY a JSON object in this exact format (no extra text, no markdown):\n" +
+            $"{{\"passed\": true, \"reason\": \"one short sentence explaining your decision\", \"topicScores\": {{ {scoringJsonShape} }} }}\n\n" +
+            "Use the exact target topics above as the keys inside \"topicScores\".\n" +
+            "Set \"passed\" to true only if the sum of all topic scores is 6 or higher. Otherwise set it to false.";
     }
 }
