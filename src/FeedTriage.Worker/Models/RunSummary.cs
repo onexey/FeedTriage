@@ -11,6 +11,7 @@ public sealed class RunSummary
     public int RelevantMatches { get; set; }
     public int MarkedAsRead { get; set; }
     public int Errors { get; set; }
+    public int ScoredEntries { get; set; }
 
     public List<ArticleProcessingResult> Results { get; init; } = [];
 }

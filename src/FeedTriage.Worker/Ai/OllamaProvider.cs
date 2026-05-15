@@ -2,6 +2,7 @@ using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text;
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using System.Text.Json.Serialization;
 using Microsoft.Extensions.Logging;
 using FeedTriage.Worker.Configuration;
@@ -169,7 +170,8 @@ public sealed class OllamaProvider : IAiProvider
                 Passed = parsed.Passed,
                 Reason = parsed.Reason ?? string.Empty,
                 ProviderInstance = InstanceName,
-                Model = _model
+                Model = _model,
+                TopicScores = NormalizeTopicScores(parsed.TopicScores)
             };
         }
         catch (JsonException ex)
@@ -179,6 +181,41 @@ public sealed class OllamaProvider : IAiProvider
                 InstanceName, content);
             return null;
         }
+    }
+
+    private static IReadOnlyDictionary<string, int> NormalizeTopicScores(JsonObject? topicScores)
+    {
+        if (topicScores is null || topicScores.Count == 0)
+        {
+            return new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+        }
+
+        var normalized = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var (topic, value) in topicScores)
+        {
+            if (string.IsNullOrWhiteSpace(topic))
+            {
+                continue;
+            }
+
+            if (value is null)
+            {
+                normalized[topic] = 0;
+                continue;
+            }
+
+            var parsedValue = value.GetValueKind() switch
+            {
+                JsonValueKind.Number when value.TryGetValue<int>(out var intValue) => intValue,
+                JsonValueKind.String when int.TryParse(value.GetValue<string>(), out var stringValue) => stringValue,
+                _ => 0
+            };
+
+            normalized[topic] = Math.Clamp(parsedValue, 0, 5);
+        }
+
+        return normalized;
     }
 }
 
@@ -235,6 +272,7 @@ internal sealed class AiRawDecision
 {
     [JsonPropertyName("passed")] public bool Passed { get; set; }
     [JsonPropertyName("reason")] public string? Reason { get; set; }
+    [JsonPropertyName("topicScores")] public JsonObject? TopicScores { get; set; }
 }
 
 [JsonSerializable(typeof(OllamaNativeChatRequest))]

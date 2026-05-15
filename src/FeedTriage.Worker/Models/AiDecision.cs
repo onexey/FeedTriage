@@ -25,4 +25,15 @@ public sealed class AiDecision
     /// The model identifier used by the provider (e.g. "qwen3:4b").
     /// </summary>
     public required string Model { get; init; }
+
+    /// <summary>
+    /// Per-topic scores from 0-5 for the evaluated article. Empty for screening-only decisions.
+    /// </summary>
+    public IReadOnlyDictionary<string, int> TopicScores { get; init; } =
+        new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>
+    /// Sum of <see cref="TopicScores"/> for convenience when ranking entries.
+    /// </summary>
+    public int TotalScore => TopicScores.Values.Sum();
 }

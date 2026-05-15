@@ -22,4 +22,7 @@ public interface IMinifluxClient
 
     /// <summary>Marks the given entries as read.</summary>
     Task MarkAsReadAsync(IEnumerable<long> entryIds, CancellationToken ct = default);
+
+    /// <summary>Bookmarks the given entry in Miniflux.</summary>
+    Task BookmarkAsync(long entryId, CancellationToken ct = default);
 }

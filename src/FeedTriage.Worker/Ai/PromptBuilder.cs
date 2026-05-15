@@ -44,7 +44,9 @@ public static class PromptBuilder
     /// </summary>
     public static string BuildReviewPrompt(string title, string fullContent, FilteringOptions filtering)
     {
-        var focusTopics = string.Join(", ", filtering.GetFocusTopicList());
+        var focusTopics = filtering.GetFocusTopicList();
+        var focusTopicsText = string.Join(", ", focusTopics);
+        var scoringJsonShape = string.Join(", ", focusTopics.Select(topic => $"\"{topic}\": 0"));
         var antiTopicsSection = filtering.GetAntiTopicList() is { Count: > 0 } antiTopics
             ? $"\nTopics to AVOID: {string.Join(", ", antiTopics)}"
             : string.Empty;
@@ -55,18 +57,29 @@ public static class PromptBuilder
             : fullContent;
 
         return $$"""
-            You are a relevance reviewer. Your task is to decide whether an article is worth keeping unread for careful manual review.
+            You are a relevance reviewer. Your task is to score how valuable an article is for each target topic.
 
-            Relevant topics: {{focusTopics}}{{antiTopicsSection}}
+            Relevant topics: {{focusTopicsText}}{{antiTopicsSection}}
+
+            Score every target topic from 0 to 5 using ONLY integers:
+            - 0 = unrelated to that topic
+            - 1 = barely related and not useful
+            - 2 = somewhat related but low value
+            - 3 = clearly related and somewhat useful
+            - 4 = strongly related and valuable
+            - 5 = extremely related and highly valuable
+
+            Value matters as much as topicality. Do not give high scores just because a topic is mentioned in passing.
 
             Article title: {{title}}
             Article content:
             {{content}}
 
             Respond with ONLY a JSON object in this exact format (no extra text, no markdown):
-            {"passed": true, "reason": "one short sentence explaining your decision"}
+            {"passed": true, "reason": "one short sentence explaining your decision", "topicScores": { {{scoringJsonShape}} }}
 
-            Set "passed" to true if the article is genuinely relevant and worth keeping unread for follow-up, false otherwise.
+            Use the exact target topics above as the keys inside "topicScores".
+            Set "passed" to true only if the sum of all topic scores is 6 or higher. Otherwise set it to false.
             """;
     }
 }

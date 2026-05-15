@@ -11,15 +11,18 @@ public sealed class Worker : BackgroundService
     private static readonly TimeSpan MaxDelay = TimeSpan.FromMilliseconds(int.MaxValue - 1);
 
     private readonly IArticleProcessor _processor;
+    private readonly IDailyArticleStarringService _dailyArticleStarring;
     private readonly SchedulerOptions _scheduler;
     private readonly ILogger<Worker> _logger;
 
     public Worker(
         IArticleProcessor processor,
+        IDailyArticleStarringService dailyArticleStarring,
         IOptions<SchedulerOptions> schedulerOptions,
         ILogger<Worker> logger)
     {
         _processor = processor;
+        _dailyArticleStarring = dailyArticleStarring;
         _scheduler = schedulerOptions.Value;
         _logger = logger;
     }
@@ -29,6 +32,8 @@ public sealed class Worker : BackgroundService
         _logger.LogInformation(
             "Worker started — RunOnStart={RunOnStart}, RunInterval={RunInterval}",
             _scheduler.RunOnStart, _scheduler.RunInterval);
+
+        await RunDailyStarringAsync(stoppingToken);
 
         if (_scheduler.RunOnStart)
         {
@@ -71,6 +76,7 @@ public sealed class Worker : BackgroundService
         try
         {
             await _processor.ProcessAsync(ct);
+            await RunDailyStarringAsync(ct);
         }
         catch (OperationCanceledException)
         {
@@ -80,6 +86,22 @@ public sealed class Worker : BackgroundService
         catch (Exception ex)
         {
             _logger.LogError(ex, "Unhandled error during processing run");
+        }
+    }
+
+    private async Task RunDailyStarringAsync(CancellationToken ct)
+    {
+        try
+        {
+            await _dailyArticleStarring.RunPendingAsync(ct);
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Unhandled error during daily starring run");
         }
     }
 }

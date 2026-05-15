@@ -89,4 +89,12 @@ public sealed class MinifluxClient : IMinifluxClient
         var response = await _http.PutAsync("v1/entries", content, ct);
         response.EnsureSuccessStatusCode();
     }
+
+    public async Task BookmarkAsync(long entryId, CancellationToken ct = default)
+    {
+        _logger.LogDebug("Bookmarking entry {EntryId}", entryId);
+
+        var response = await _http.PutAsync($"v1/entries/{entryId}/bookmark", content: null, ct);
+        response.EnsureSuccessStatusCode();
+    }
 }
