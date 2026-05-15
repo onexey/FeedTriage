@@ -85,6 +85,8 @@ var host = Host.CreateDefaultBuilder(args)
 
         // ── Business logic ────────────────────────────────────────────────────
         services.AddSingleton<IRunStateRepository, JsonRunStateRepository>();
+        services.AddSingleton<IArticleScoreRepository, SqliteArticleScoreRepository>();
+        services.AddSingleton<IDailyArticleStarringService, DailyArticleStarringService>();
         services.AddTransient<IEntryScreeningContentHandler, HackerNewsScreeningContentHandler>();
         services.AddTransient<IArticleProcessor, ArticleProcessor>();
 

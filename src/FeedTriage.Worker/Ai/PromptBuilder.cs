@@ -44,7 +44,9 @@ public static class PromptBuilder
     /// </summary>
     public static string BuildReviewPrompt(string title, string fullContent, FilteringOptions filtering)
     {
-        var focusTopics = string.Join(", ", filtering.GetFocusTopicList());
+        var focusTopics = filtering.GetFocusTopicList();
+        var focusTopicsText = string.Join(", ", focusTopics);
+        var scoringJsonShape = string.Join(", ", focusTopics.Select(topic => $"\"{topic}\": 0"));
         var antiTopicsSection = filtering.GetAntiTopicList() is { Count: > 0 } antiTopics
             ? $"\nTopics to AVOID: {string.Join(", ", antiTopics)}"
             : string.Empty;
@@ -54,19 +56,23 @@ public static class PromptBuilder
             ? fullContent[..MaxContentCharsForReview] + "…[truncated]"
             : fullContent;
 
-        return $$"""
-            You are a relevance reviewer. Your task is to decide whether an article is worth keeping unread for careful manual review.
-
-            Relevant topics: {{focusTopics}}{{antiTopicsSection}}
-
-            Article title: {{title}}
-            Article content:
-            {{content}}
-
-            Respond with ONLY a JSON object in this exact format (no extra text, no markdown):
-            {"passed": true, "reason": "one short sentence explaining your decision"}
-
-            Set "passed" to true if the article is genuinely relevant and worth keeping unread for follow-up, false otherwise.
-            """;
+        return
+            "You are a relevance reviewer. Your task is to score how valuable an article is for each target topic.\n\n" +
+            $"Relevant topics: {focusTopicsText}{antiTopicsSection}\n\n" +
+            "Score every target topic from 0 to 5 using ONLY integers:\n" +
+            "- 0 = unrelated to that topic\n" +
+            "- 1 = barely related and not useful\n" +
+            "- 2 = somewhat related but low value\n" +
+            "- 3 = clearly related and somewhat useful\n" +
+            "- 4 = strongly related and valuable\n" +
+            "- 5 = extremely related and highly valuable\n\n" +
+            "Value matters as much as topicality. Do not give high scores just because a topic is mentioned in passing.\n\n" +
+            $"Article title: {title}\n" +
+            "Article content:\n" +
+            $"{content}\n\n" +
+            "Respond with ONLY a JSON object in this exact format (no extra text, no markdown):\n" +
+            $"{{\"passed\": true, \"reason\": \"one short sentence explaining your decision\", \"topicScores\": {{ {scoringJsonShape} }} }}\n\n" +
+            "Use the exact target topics above as the keys inside \"topicScores\".\n" +
+            "Set \"passed\" to true only if at least one topic score is higher than 2. Otherwise set it to false.";
     }
 }

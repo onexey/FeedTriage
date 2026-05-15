@@ -10,9 +10,13 @@ namespace FeedTriage.Worker.Services;
 /// <inheritdoc />
 public sealed class ArticleProcessor : IArticleProcessor
 {
+    private const int KeepUnreadTopicScoreThreshold = 2;
+
     private readonly IMinifluxClient _miniflux;
     private readonly IAiDecisionPipeline _ai;
     private readonly IRunStateRepository _state;
+    private readonly IArticleScoreRepository _scores;
+    private readonly FilteringOptions _filtering;
     private readonly ProcessingOptions _processing;
     private readonly ILogger<ArticleProcessor> _logger;
     private readonly IReadOnlyList<IEntryScreeningContentHandler> _screeningContentHandlers;
@@ -21,14 +25,18 @@ public sealed class ArticleProcessor : IArticleProcessor
         IMinifluxClient miniflux,
         IAiDecisionPipeline ai,
         IRunStateRepository state,
+        IArticleScoreRepository scores,
         IEnumerable<IEntryScreeningContentHandler> screeningContentHandlers,
+        IOptions<FilteringOptions> filteringOptions,
         IOptions<ProcessingOptions> processingOptions,
         ILogger<ArticleProcessor> logger)
     {
         _miniflux = miniflux;
         _ai = ai;
         _state = state;
+        _scores = scores;
         _screeningContentHandlers = screeningContentHandlers.ToList();
+        _filtering = filteringOptions.Value;
         _processing = processingOptions.Value;
         _logger = logger;
     }
@@ -92,6 +100,7 @@ public sealed class ArticleProcessor : IArticleProcessor
             summary.RelevantMatches += result.RelevantUrls.Count;
             if (result.MarkedAsRead) summary.MarkedAsRead++;
             if (result.ErrorMessage is not null) summary.Errors++;
+            if (result.TopicScores.Count > 0 || result.TotalScore > 0) summary.ScoredEntries++;
         }
 
         if (entries.Count > 0 && !_processing.DryRun)
@@ -103,9 +112,9 @@ public sealed class ArticleProcessor : IArticleProcessor
         summary.CompletedAt = DateTimeOffset.UtcNow;
         _logger.LogInformation(
             "Run complete — fetched:{Fetched} screened:{Screened} reviewed:{Reviewed} " +
-            "relevant:{Relevant} marked:{Marked} errors:{Errors} elapsed:{Elapsed:g}",
+            "relevant:{Relevant} scored:{Scored} marked:{Marked} errors:{Errors} elapsed:{Elapsed:g}",
             summary.TotalFetched, summary.ScreeningPassed, summary.ReviewPassed,
-            summary.RelevantMatches, summary.MarkedAsRead, summary.Errors,
+            summary.RelevantMatches, summary.ScoredEntries, summary.MarkedAsRead, summary.Errors,
             summary.CompletedAt - summary.StartedAt);
 
         return summary;
@@ -136,6 +145,7 @@ public sealed class ArticleProcessor : IArticleProcessor
             }
 
             var matchingCandidates = new List<(ScreeningCandidate Candidate, AiDecision ReviewDecision)>();
+            AiDecision? bestScoreDecision = null;
 
             foreach (var candidate in candidatesResult.Candidates)
             {
@@ -194,22 +204,44 @@ public sealed class ArticleProcessor : IArticleProcessor
                     return result;
                 }
 
-                result.ReviewPassed = (result.ReviewPassed ?? false) || reviewDecision.Passed;
+                if (reviewDecision.TopicScores.Count == 0)
+                {
+                    _logger.LogWarning(
+                        "Entry {Id} {CandidateType}: review response did not include topic scores — leaving unread",
+                        entry.Id, candidate.CandidateType);
+                    result.ErrorMessage = $"Topic scores missing for {candidate.CandidateType}";
+                    return result;
+                }
+
+                var keepUnread = HasRelevantTopicScore(reviewDecision.TopicScores);
+                result.ReviewPassed = (result.ReviewPassed ?? false) || keepUnread;
                 result.DecisionReason = reviewDecision.Reason;
 
-                _logger.LogInformation(
-                    "Entry {Id} {CandidateType} review: passed={Passed} [{Provider}/{Model}] reason={Reason}",
-                    entry.Id,
-                    candidate.CandidateType,
-                    reviewDecision.Passed,
-                    reviewDecision.ProviderInstance,
-                    reviewDecision.Model,
-                    reviewDecision.Reason);
+                if (bestScoreDecision is null || reviewDecision.TotalScore > bestScoreDecision.TotalScore)
+                {
+                    bestScoreDecision = reviewDecision;
+                }
 
-                if (reviewDecision.Passed)
+                _logger.LogInformation(
+                        "Entry {Id} {CandidateType} review: passed={Passed} totalScore={TotalScore} [{Provider}/{Model}] reason={Reason}",
+                        entry.Id,
+                        candidate.CandidateType,
+                        keepUnread,
+                        reviewDecision.TotalScore,
+                        reviewDecision.ProviderInstance,
+                        reviewDecision.Model,
+                        reviewDecision.Reason);
+
+                if (keepUnread)
                 {
                     matchingCandidates.Add((candidate, reviewDecision));
                 }
+            }
+
+            if (bestScoreDecision is not null)
+            {
+                ApplyTopicScores(result, bestScoreDecision.TopicScores);
+                await TryPersistScoreAsync(entry, result, ct);
             }
 
             if (matchingCandidates.Count == 0)
@@ -278,6 +310,73 @@ public sealed class ArticleProcessor : IArticleProcessor
                 "Entry {Id}: mark-as-read failed — article may be re-processed next run", entryId);
         }
     }
+
+    private void ApplyTopicScores(
+        ArticleProcessingResult result,
+        IReadOnlyDictionary<string, int> rawTopicScores)
+    {
+        result.TopicScores.Clear();
+
+        foreach (var (topic, score) in NormalizeTopicScores(rawTopicScores))
+        {
+            result.TopicScores[topic] = score;
+        }
+
+        result.TotalScore = result.TopicScores.Values.Sum();
+        result.ReviewPassed = HasRelevantTopicScore(result.TopicScores);
+    }
+
+    private IReadOnlyDictionary<string, int> NormalizeTopicScores(
+        IReadOnlyDictionary<string, int> rawTopicScores)
+    {
+        var normalized = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+        var lookup = new Dictionary<string, int>(rawTopicScores, StringComparer.OrdinalIgnoreCase);
+
+        foreach (var topic in _filtering.GetFocusTopicList())
+        {
+            lookup.TryGetValue(topic, out var score);
+            normalized[topic] = Math.Clamp(score, 0, 5);
+        }
+
+        return normalized;
+    }
+
+    private async Task TryPersistScoreAsync(
+        MinifluxEntry entry,
+        ArticleProcessingResult result,
+        CancellationToken ct)
+    {
+        if (_processing.DryRun || result.TopicScores.Count == 0)
+        {
+            return;
+        }
+
+        try
+        {
+            await _scores.SaveScoreAsync(
+                new StoredArticleScore
+                {
+                    ScoreDate = DateOnly.FromDateTime(DateTime.UtcNow),
+                    EntryId = entry.Id,
+                    Title = entry.Title,
+                    Url = entry.Url,
+                    TotalScore = result.TotalScore,
+                    TopicScores = new Dictionary<string, int>(result.TopicScores, StringComparer.OrdinalIgnoreCase)
+                },
+                ct);
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to persist topic scores for entry {EntryId}", entry.Id);
+        }
+    }
+
+    private static bool HasRelevantTopicScore(IReadOnlyDictionary<string, int> topicScores) =>
+        topicScores.Values.Any(score => score > KeepUnreadTopicScoreThreshold);
 
     private async Task<ScreeningContentResult> BuildScreeningCandidatesAsync(
         MinifluxEntry entry,

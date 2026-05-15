@@ -22,4 +22,10 @@ public sealed class ArticleProcessingResult
 
     /// <summary>Every candidate URL that passed full review for this Miniflux entry.</summary>
     public List<string> RelevantUrls { get; } = [];
+
+    /// <summary>Per-topic score assigned to the best matching candidate for this entry.</summary>
+    public Dictionary<string, int> TopicScores { get; } = new(StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>Total score assigned to the entry.</summary>
+    public int TotalScore { get; set; }
 }

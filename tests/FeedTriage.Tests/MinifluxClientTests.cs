@@ -135,4 +135,18 @@ public sealed class MinifluxClientTests
 
         Assert.Empty(handler.Calls);
     }
+
+    [Fact]
+    public async Task BookmarkAsync_CallsBookmarkEndpoint()
+    {
+        var handler = new FakeHttpMessageHandler();
+        handler.On(HttpMethod.Put, "/bookmark", HttpStatusCode.NoContent, "");
+
+        var client = CreateClient(handler);
+        await client.BookmarkAsync(42);
+
+        var call = Assert.Single(handler.Calls);
+        Assert.Equal(HttpMethod.Put, call.Method);
+        Assert.Contains("/v1/entries/42/bookmark", call.Uri?.ToString() ?? string.Empty);
+    }
 }
