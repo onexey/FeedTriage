@@ -5,7 +5,6 @@ namespace FeedTriage.Worker.Services;
 
 public sealed class DailyArticleStarringService : IDailyArticleStarringService
 {
-    internal const int MinimumKeepUnreadScore = 6;
     internal const int DailyStarCount = 5;
     internal const int RetentionDays = 5;
 
@@ -46,7 +45,6 @@ public sealed class DailyArticleStarringService : IDailyArticleStarringService
                     var topScores = await _scores.GetTopScoresAsync(
                         scoreDate,
                         DailyStarCount,
-                        MinimumKeepUnreadScore,
                         ct);
 
                     foreach (var article in topScores)

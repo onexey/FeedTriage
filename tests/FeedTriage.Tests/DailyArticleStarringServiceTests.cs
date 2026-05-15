@@ -19,7 +19,7 @@ public sealed class DailyArticleStarringServiceTests
             .ReturnsAsync((DateTimeOffset?)null);
         scoreRepository.Setup(r => r.GetScoredDatesAsync(It.IsAny<DateOnly>(), It.IsAny<DateOnly>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync([yesterday]);
-        scoreRepository.Setup(r => r.GetTopScoresAsync(yesterday, 5, 6, It.IsAny<CancellationToken>()))
+        scoreRepository.Setup(r => r.GetTopScoresAsync(yesterday, 5, It.IsAny<CancellationToken>()))
             .ReturnsAsync(Enumerable.Range(1, 6)
                 .Select(i => new StoredArticleScore
                 {

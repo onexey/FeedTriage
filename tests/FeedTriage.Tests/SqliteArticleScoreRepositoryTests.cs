@@ -34,7 +34,7 @@ public sealed class SqliteArticleScoreRepositoryTests
             });
             await repository.SaveLastDailyStarringRunAsync(new DateTimeOffset(2026, 5, 15, 0, 5, 0, TimeSpan.Zero));
 
-            var storedScores = await repository.GetTopScoresAsync(scoreDate, 5, 6);
+            var storedScores = await repository.GetTopScoresAsync(scoreDate, 5);
             var storedScore = Assert.Single(storedScores);
 
             Assert.Equal(42, storedScore.EntryId);
@@ -42,6 +42,51 @@ public sealed class SqliteArticleScoreRepositoryTests
             Assert.Equal(4, storedScore.TopicScores["software engineering"]);
             Assert.Equal(3, storedScore.TopicScores["team leadership"]);
             Assert.Equal(new DateTimeOffset(2026, 5, 15, 0, 5, 0, TimeSpan.Zero), await repository.GetLastDailyStarringRunAsync());
+        }
+        finally
+        {
+            if (Directory.Exists(tempRoot))
+            {
+                Directory.Delete(tempRoot, recursive: true);
+            }
+        }
+    }
+
+    [Fact]
+    public async Task GetTopScoresAsync_ReturnsHighestTotalsWithoutMinimumThreshold()
+    {
+        var tempRoot = Path.Combine(Path.GetTempPath(), $"feedtriage-scores-{Guid.NewGuid():N}");
+        var databasePath = Path.Combine(tempRoot, "scores.db");
+        var repository = CreateRepository(databasePath);
+        var scoreDate = new DateOnly(2026, 5, 14);
+
+        try
+        {
+            await repository.SaveScoreAsync(new StoredArticleScore
+            {
+                ScoreDate = scoreDate,
+                EntryId = 1,
+                Title = "Lower total",
+                Url = "https://example.com/low",
+                TotalScore = 3,
+                TopicScores = new Dictionary<string, int> { ["software engineering"] = 3 }
+            });
+            await repository.SaveScoreAsync(new StoredArticleScore
+            {
+                ScoreDate = scoreDate,
+                EntryId = 2,
+                Title = "Higher total",
+                Url = "https://example.com/high",
+                TotalScore = 8,
+                TopicScores = new Dictionary<string, int> { ["software engineering"] = 5, ["team leadership"] = 3 }
+            });
+
+            var storedScores = await repository.GetTopScoresAsync(scoreDate, 5);
+
+            Assert.Collection(
+                storedScores,
+                score => Assert.Equal(2, score.EntryId),
+                score => Assert.Equal(1, score.EntryId));
         }
         finally
         {
@@ -82,8 +127,8 @@ public sealed class SqliteArticleScoreRepositoryTests
 
             await repository.DeleteScoresOlderThanAsync(new DateOnly(2026, 5, 11));
 
-            Assert.Empty(await repository.GetTopScoresAsync(new DateOnly(2026, 5, 10), 5, 0));
-            Assert.Single(await repository.GetTopScoresAsync(new DateOnly(2026, 5, 14), 5, 0));
+            Assert.Empty(await repository.GetTopScoresAsync(new DateOnly(2026, 5, 10), 5));
+            Assert.Single(await repository.GetTopScoresAsync(new DateOnly(2026, 5, 14), 5));
         }
         finally
         {

@@ -129,7 +129,6 @@ public sealed class SqliteArticleScoreRepository : IArticleScoreRepository
     public async Task<IReadOnlyList<StoredArticleScore>> GetTopScoresAsync(
         DateOnly scoreDate,
         int take,
-        int minimumTotalScore,
         CancellationToken ct = default)
     {
         await EnsureInitializedAsync(ct);
@@ -147,12 +146,11 @@ public sealed class SqliteArticleScoreRepository : IArticleScoreRepository
             """
             SELECT score_date, entry_id, title, url, total_score
             FROM article_scores
-            WHERE score_date = $scoreDate AND total_score >= $minimumTotalScore
+            WHERE score_date = $scoreDate
             ORDER BY total_score DESC, entry_id ASC
             LIMIT $take;
             """;
         command.Parameters.AddWithValue("$scoreDate", scoreDate.ToString("yyyy-MM-dd"));
-        command.Parameters.AddWithValue("$minimumTotalScore", minimumTotalScore);
         command.Parameters.AddWithValue("$take", take);
 
         var scores = new List<StoredArticleScore>();
