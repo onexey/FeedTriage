@@ -145,7 +145,7 @@ public sealed class ArticleProcessor : IArticleProcessor
             }
 
             var matchingCandidates = new List<(ScreeningCandidate Candidate, AiDecision ReviewDecision)>();
-            AiDecision? bestScoreDecision = null;
+            (ScreeningCandidate Candidate, AiDecision ReviewDecision)? bestScoreResult = null;
 
             foreach (var candidate in candidatesResult.Candidates)
             {
@@ -217,9 +217,9 @@ public sealed class ArticleProcessor : IArticleProcessor
                 result.ReviewPassed = (result.ReviewPassed ?? false) || keepUnread;
                 result.DecisionReason = reviewDecision.Reason;
 
-                if (bestScoreDecision is null || reviewDecision.TotalScore > bestScoreDecision.TotalScore)
+                if (bestScoreResult is null || reviewDecision.TotalScore > bestScoreResult.Value.ReviewDecision.TotalScore)
                 {
-                    bestScoreDecision = reviewDecision;
+                    bestScoreResult = (candidate, reviewDecision);
                 }
 
                 _logger.LogInformation(
@@ -238,9 +238,10 @@ public sealed class ArticleProcessor : IArticleProcessor
                 }
             }
 
-            if (bestScoreDecision is not null)
+            if (bestScoreResult is not null)
             {
-                ApplyTopicScores(result, bestScoreDecision.TopicScores);
+                ApplyTopicScores(result, bestScoreResult.Value.ReviewDecision.TopicScores);
+                LogRatingResult(entry, bestScoreResult.Value.Candidate, bestScoreResult.Value.ReviewDecision, result);
                 await TryPersistScoreAsync(entry, result, ct);
             }
 
@@ -326,6 +327,24 @@ public sealed class ArticleProcessor : IArticleProcessor
         result.ReviewPassed = HasRelevantTopicScore(result.TopicScores);
     }
 
+    private void LogRatingResult(
+        MinifluxEntry entry,
+        ScreeningCandidate candidate,
+        AiDecision reviewDecision,
+        ArticleProcessingResult result)
+    {
+        _logger.LogInformation(
+            "Entry {Id} ({Title}) rating result: candidate={CandidateType} totalScore={TotalScore} topicScores={TopicScores} [{Provider}/{Model}] reason={Reason}",
+            entry.Id,
+            entry.Title,
+            candidate.CandidateType,
+            result.TotalScore,
+            FormatTopicScores(result.TopicScores),
+            reviewDecision.ProviderInstance,
+            reviewDecision.Model,
+            reviewDecision.Reason);
+    }
+
     private IReadOnlyDictionary<string, int> NormalizeTopicScores(
         IReadOnlyDictionary<string, int> rawTopicScores)
     {
@@ -340,6 +359,9 @@ public sealed class ArticleProcessor : IArticleProcessor
 
         return normalized;
     }
+
+    private static string FormatTopicScores(IReadOnlyDictionary<string, int> topicScores) =>
+        string.Join(", ", topicScores.Select(kvp => $"{kvp.Key}={kvp.Value}"));
 
     private async Task TryPersistScoreAsync(
         MinifluxEntry entry,
