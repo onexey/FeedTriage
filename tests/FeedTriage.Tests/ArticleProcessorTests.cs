@@ -1,3 +1,4 @@
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using Moq;
@@ -76,7 +77,8 @@ public sealed class ArticleProcessorTests
         IArticleScoreRepository? scores = null,
         IEnumerable<IEntryScreeningContentHandler>? screeningContentHandlers = null,
         bool dryRun = false,
-        int? maxArticles = null)
+        int? maxArticles = null,
+        ILogger<ArticleProcessor>? logger = null)
     {
         var minifluxMock = miniflux ?? DefaultMiniflux();
         var aiMock = ai ?? DefaultAi();
@@ -96,7 +98,7 @@ public sealed class ArticleProcessorTests
             handlers,
             filteringOptions,
             opts,
-            NullLogger<ArticleProcessor>.Instance);
+            logger ?? NullLogger<ArticleProcessor>.Instance);
     }
 
     private static IMinifluxClient DefaultMiniflux(
@@ -601,5 +603,47 @@ public sealed class ArticleProcessorTests
         Assert.Equal(result.TotalScore, persistedScore!.TotalScore);
         Assert.Equal(4, persistedScore.TopicScores["software engineering"]);
         Assert.Equal(3, persistedScore.TopicScores["team leadership"]);
+    }
+
+    [Fact]
+    public async Task ReviewScores_AreLoggedWithTotalAndTopicBreakdown()
+    {
+        var logger = new TestLogger<ArticleProcessor>();
+        var processor = CreateProcessor(logger: logger);
+
+        await processor.ProcessAsync();
+
+        var ratingLog = Assert.Single(logger.Messages, message => message.Contains("rating result:", StringComparison.Ordinal));
+        Assert.Contains("totalScore=7", ratingLog, StringComparison.Ordinal);
+        Assert.Contains("topicScores=software engineering=4, team leadership=3", ratingLog, StringComparison.Ordinal);
+    }
+
+    private sealed class TestLogger<T> : ILogger<T>
+    {
+        public List<string> Messages { get; } = [];
+
+        public IDisposable BeginScope<TState>(TState state)
+            where TState : notnull => NullScope.Instance;
+
+        public bool IsEnabled(LogLevel logLevel) => true;
+
+        public void Log<TState>(
+            LogLevel logLevel,
+            EventId eventId,
+            TState state,
+            Exception? exception,
+            Func<TState, Exception?, string> formatter)
+        {
+            Messages.Add(formatter(state, exception));
+        }
+    }
+
+    private sealed class NullScope : IDisposable
+    {
+        public static NullScope Instance { get; } = new();
+
+        public void Dispose()
+        {
+        }
     }
 }
