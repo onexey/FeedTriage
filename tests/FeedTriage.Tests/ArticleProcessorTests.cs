@@ -618,9 +618,25 @@ public sealed class ArticleProcessorTests
         Assert.Contains("topicScores=software engineering=4, team leadership=3", ratingLog, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public async Task DetailedDecisionLogs_AreDebug_WhileFinalRatingRemainsInformation()
+    {
+        var logger = new TestLogger<ArticleProcessor>();
+        var processor = CreateProcessor(logger: logger);
+
+        await processor.ProcessAsync();
+
+        Assert.Contains(logger.Entries, entry => entry.Level == LogLevel.Debug && entry.Message.Contains("screening:", StringComparison.Ordinal));
+        Assert.Contains(logger.Entries, entry => entry.Level == LogLevel.Debug && entry.Message.Contains("review:", StringComparison.Ordinal));
+        Assert.Contains(logger.Entries, entry => entry.Level == LogLevel.Information && entry.Message.Contains("rating result:", StringComparison.Ordinal));
+        Assert.DoesNotContain(logger.Entries, entry => entry.Level == LogLevel.Information && entry.Message.Contains("screening:", StringComparison.Ordinal));
+        Assert.DoesNotContain(logger.Entries, entry => entry.Level == LogLevel.Information && entry.Message.Contains("review:", StringComparison.Ordinal));
+    }
+
     private sealed class TestLogger<T> : ILogger<T>
     {
-        public List<string> Messages { get; } = [];
+        public List<LogEntry> Entries { get; } = [];
+        public IEnumerable<string> Messages => Entries.Select(entry => entry.Message);
 
         public IDisposable BeginScope<TState>(TState state)
             where TState : notnull => NullScope.Instance;
@@ -634,9 +650,11 @@ public sealed class ArticleProcessorTests
             Exception? exception,
             Func<TState, Exception?, string> formatter)
         {
-            Messages.Add(formatter(state, exception));
+            Entries.Add(new LogEntry(logLevel, formatter(state, exception)));
         }
     }
+
+    private sealed record LogEntry(LogLevel Level, string Message);
 
     private sealed class NullScope : IDisposable
     {

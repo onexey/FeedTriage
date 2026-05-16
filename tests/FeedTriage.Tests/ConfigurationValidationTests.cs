@@ -115,6 +115,36 @@ public sealed class ConfigurationValidationTests
     }
 
     [Fact]
+    public void AppLoggingOptions_DefaultsToInformation()
+    {
+        var opts = new AppLoggingOptions();
+
+        Assert.Equal("Information", opts.Level);
+        Assert.True(AppLoggingOptions.TryParseLevel(opts.Level, out var level));
+        Assert.Equal(Microsoft.Extensions.Logging.LogLevel.Information, level);
+    }
+
+    [Theory]
+    [InlineData("verbose", Microsoft.Extensions.Logging.LogLevel.Debug)]
+    [InlineData("debug", Microsoft.Extensions.Logging.LogLevel.Debug)]
+    [InlineData("trace", Microsoft.Extensions.Logging.LogLevel.Trace)]
+    [InlineData("info", Microsoft.Extensions.Logging.LogLevel.Information)]
+    [InlineData("warn", Microsoft.Extensions.Logging.LogLevel.Warning)]
+    [InlineData("fatal", Microsoft.Extensions.Logging.LogLevel.Critical)]
+    [InlineData("none", Microsoft.Extensions.Logging.LogLevel.None)]
+    public void AppLoggingOptions_ParsesAliases(string configuredLevel, Microsoft.Extensions.Logging.LogLevel expectedLevel)
+    {
+        Assert.True(AppLoggingOptions.TryParseLevel(configuredLevel, out var level));
+        Assert.Equal(expectedLevel, level);
+    }
+
+    [Fact]
+    public void AppLoggingOptions_RejectsInvalidLevels()
+    {
+        Assert.False(AppLoggingOptions.TryParseLevel("chatty", out _));
+    }
+
+    [Fact]
     public void SchedulerOptions_DefaultsToRunOnStart_AndFiveMinuteInterval()
     {
         var opts = new SchedulerOptions();

@@ -1,5 +1,6 @@
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Console;
 using Microsoft.Extensions.Options;
 using FeedTriage.Worker;
@@ -25,6 +26,16 @@ var host = Host.CreateDefaultBuilder(args)
             configBuilder.AddInMemoryCollection(normalizedEnv);
         }
     })
+    .ConfigureLogging((ctx, logging) =>
+    {
+        var loggingOptions = new AppLoggingOptions();
+        ctx.Configuration.GetSection(AppLoggingOptions.SectionName).Bind(loggingOptions);
+
+        logging.SetMinimumLevel(
+            AppLoggingOptions.TryParseLevel(loggingOptions.Level, out var configuredLevel)
+                ? configuredLevel
+                : LogLevel.Information);
+    })
     .ConfigureServices((ctx, services) =>
     {
         var config = ctx.Configuration;
@@ -39,6 +50,14 @@ var host = Host.CreateDefaultBuilder(args)
             options.TimestampFormat = ConsoleLoggingDefaults.TimestampFormat;
             options.UseUtcTimestamp = true;
         });
+
+        services
+            .AddOptions<AppLoggingOptions>()
+            .Bind(config.GetSection(AppLoggingOptions.SectionName))
+            .Validate(
+                options => AppLoggingOptions.TryParseLevel(options.Level, out _),
+                "Logging level must be one of: verbose, trace, debug, information/info, warning/warn, error, critical/fatal, none")
+            .ValidateOnStart();
 
         // ── Options registration with startup validation ───────────────────────
         services
@@ -74,6 +93,7 @@ var host = Host.CreateDefaultBuilder(args)
             .ValidateOnStart();
 
         // ── HTTP clients ──────────────────────────────────────────────────────
+        services.ConfigureHttpClientDefaults(httpClientBuilder => httpClientBuilder.RemoveAllLoggers());
         services.AddHttpClient<IMinifluxClient, MinifluxClient>();
 
         // Generic IHttpClientFactory used by OllamaProvider (one named client per instance)
