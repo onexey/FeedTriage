@@ -141,6 +141,8 @@ public sealed class ConfigurationValidationTests
     [Fact]
     public void AppLoggingOptions_RejectsInvalidLevels()
     {
+        Assert.False(AppLoggingOptions.TryParseLevel(string.Empty, out _));
+        Assert.False(AppLoggingOptions.TryParseLevel("   ", out _));
         Assert.False(AppLoggingOptions.TryParseLevel("chatty", out _));
     }
 

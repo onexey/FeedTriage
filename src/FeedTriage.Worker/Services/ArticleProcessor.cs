@@ -222,7 +222,7 @@ public sealed class ArticleProcessor : IArticleProcessor
                     bestScoreResult = (candidate, reviewDecision);
                 }
 
-                _logger.LogDebug(
+                _logger.LogInformation(
                     "Entry {Id} {CandidateType} review: passed={Passed} totalScore={TotalScore} [{Provider}/{Model}] reason={Reason}",
                     entry.Id,
                     candidate.CandidateType,

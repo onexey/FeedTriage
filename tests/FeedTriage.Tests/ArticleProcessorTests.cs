@@ -619,7 +619,7 @@ public sealed class ArticleProcessorTests
     }
 
     [Fact]
-    public async Task DetailedDecisionLogs_AreDebug_WhileFinalRatingRemainsInformation()
+    public async Task ScreeningLogs_AreDebug_AndReviewLogsRemainInformation()
     {
         var logger = new TestLogger<ArticleProcessor>();
         var processor = CreateProcessor(logger: logger);
@@ -627,10 +627,9 @@ public sealed class ArticleProcessorTests
         await processor.ProcessAsync();
 
         Assert.Contains(logger.Entries, entry => entry.Level == LogLevel.Debug && entry.Message.Contains("screening:", StringComparison.Ordinal));
-        Assert.Contains(logger.Entries, entry => entry.Level == LogLevel.Debug && entry.Message.Contains("review:", StringComparison.Ordinal));
+        Assert.Contains(logger.Entries, entry => entry.Level == LogLevel.Information && entry.Message.Contains("review:", StringComparison.Ordinal));
         Assert.Contains(logger.Entries, entry => entry.Level == LogLevel.Information && entry.Message.Contains("rating result:", StringComparison.Ordinal));
         Assert.DoesNotContain(logger.Entries, entry => entry.Level == LogLevel.Information && entry.Message.Contains("screening:", StringComparison.Ordinal));
-        Assert.DoesNotContain(logger.Entries, entry => entry.Level == LogLevel.Information && entry.Message.Contains("review:", StringComparison.Ordinal));
     }
 
     private sealed class TestLogger<T> : ILogger<T>

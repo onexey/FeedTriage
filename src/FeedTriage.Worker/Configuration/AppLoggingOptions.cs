@@ -10,10 +10,14 @@ public sealed class AppLoggingOptions
 
     public static bool TryParseLevel(string? value, out LogLevel level)
     {
-        switch (value?.Trim().ToLowerInvariant())
+        if (string.IsNullOrWhiteSpace(value))
         {
-            case null:
-            case "":
+            level = default;
+            return false;
+        }
+
+        switch (value.Trim().ToLowerInvariant())
+        {
             case "information":
             case "info":
                 level = LogLevel.Information;
