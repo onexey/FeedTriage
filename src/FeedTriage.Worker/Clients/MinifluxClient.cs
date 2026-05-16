@@ -44,7 +44,7 @@ public sealed class MinifluxClient : IMinifluxClient
         var result = await response.Content.ReadFromJsonAsync<MinifluxEntriesResponse>(ct);
         var entries = result?.Entries ?? [];
 
-        _logger.LogInformation(
+        _logger.LogDebug(
             "Fetched {Count} unread entries from Miniflux (published after {After})",
             entries.Count, after?.ToString("u") ?? "none");
         return entries;

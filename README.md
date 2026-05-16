@@ -149,6 +149,7 @@ If a key is omitted entirely, FeedTriage uses the default shown below.
 | `FEEDTRIAGE__PROCESSING__MAX_ARTICLES_PER_RUN` | | `5` | Max unread items to fetch and process per run |
 | `FEEDTRIAGE__PROCESSING__DRY_RUN` | | `false` | Evaluate only; never mark entries as read |
 | `FEEDTRIAGE__PROCESSING__MAX_RETRIES_PER_ENTRY` | | `5` | Retries before giving up on a failed entry |
+| `FEEDTRIAGE__LOGGING__LEVEL` | | `Information` | Application log level (`verbose` maps to `Debug`) |
 | `FEEDTRIAGE__STATE__FILE_PATH` | | `./data/state.json` | JSON file used to persist the newest processed publication time |
 | `FEEDTRIAGE__STATE__SCORE_DATABASE_PATH` | | `./data/scores.db` | SQLite database used for daily article scores and daily starring metadata |
 | `FEEDTRIAGE__AI__SCREENING_CHAIN` | | `screen_ollama_small` | Ordered comma-separated provider names for Stage 1 |

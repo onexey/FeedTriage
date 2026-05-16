@@ -163,7 +163,7 @@ public sealed class ArticleProcessor : IArticleProcessor
                 result.ScreeningPassed = (result.ScreeningPassed ?? false) || screenDecision.Passed;
                 result.DecisionReason = screenDecision.Reason;
 
-                _logger.LogInformation(
+                _logger.LogDebug(
                     "Entry {Id} {CandidateType} screening: passed={Passed} [{Provider}/{Model}] reason={Reason}",
                     entry.Id,
                     candidate.CandidateType,
@@ -223,14 +223,14 @@ public sealed class ArticleProcessor : IArticleProcessor
                 }
 
                 _logger.LogInformation(
-                        "Entry {Id} {CandidateType} review: passed={Passed} totalScore={TotalScore} [{Provider}/{Model}] reason={Reason}",
-                        entry.Id,
-                        candidate.CandidateType,
-                        keepUnread,
-                        reviewDecision.TotalScore,
-                        reviewDecision.ProviderInstance,
-                        reviewDecision.Model,
-                        reviewDecision.Reason);
+                    "Entry {Id} {CandidateType} review: passed={Passed} totalScore={TotalScore} [{Provider}/{Model}] reason={Reason}",
+                    entry.Id,
+                    candidate.CandidateType,
+                    keepUnread,
+                    reviewDecision.TotalScore,
+                    reviewDecision.ProviderInstance,
+                    reviewDecision.Model,
+                    reviewDecision.Reason);
 
                 if (keepUnread)
                 {
@@ -257,7 +257,7 @@ public sealed class ArticleProcessor : IArticleProcessor
 
                 if (_processing.DryRun)
                 {
-                    _logger.LogInformation(
+                    _logger.LogDebug(
                         "[DRY RUN] Relevant candidate would remain unread: {Url} ({CandidateType}) — reason: {Reason}",
                         candidate.Url,
                         candidate.CandidateType,
@@ -267,7 +267,7 @@ public sealed class ArticleProcessor : IArticleProcessor
 
             if (!_processing.DryRun)
             {
-                _logger.LogInformation(
+                _logger.LogDebug(
                     "Entry {Id} ({Title}): {Count} relevant candidate(s) found — leaving unread for manual review",
                     entry.Id,
                     entry.Title,
@@ -276,7 +276,7 @@ public sealed class ArticleProcessor : IArticleProcessor
 
             if (_processing.DryRun)
             {
-                _logger.LogInformation(
+                _logger.LogDebug(
                     "[DRY RUN] Entry {Id} ({Title}) would remain unread because it has relevant candidates",
                     entry.Id, entry.Title);
             }
