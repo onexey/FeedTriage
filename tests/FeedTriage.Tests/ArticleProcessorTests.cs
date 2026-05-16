@@ -613,7 +613,7 @@ public sealed class ArticleProcessorTests
 
         await processor.ProcessAsync();
 
-        var ratingLog = Assert.Single(logger.Messages.Where(message => message.Contains("rating result:", StringComparison.Ordinal)));
+        var ratingLog = Assert.Single(logger.Messages, message => message.Contains("rating result:", StringComparison.Ordinal));
         Assert.Contains("totalScore=7", ratingLog, StringComparison.Ordinal);
         Assert.Contains("topicScores=software engineering=4, team leadership=3", ratingLog, StringComparison.Ordinal);
     }
