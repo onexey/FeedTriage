@@ -13,7 +13,7 @@ RUN dotnet publish src/FeedTriage.Worker/FeedTriage.Worker.csproj \
     -o /app/publish
 
 # ── Runtime stage ───────────────────────────────────────────────────────────
-FROM mcr.microsoft.com/dotnet/runtime:10.0 AS runtime
+FROM mcr.microsoft.com/dotnet/runtime:11.0 AS runtime
 WORKDIR /app
 
 # Create the runtime user that will be used after mounted data is initialized.
